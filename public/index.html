@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WAT – Weekly Assessments</title><link rel="stylesheet" href="style.css"></head><body><main>
+<h1>Weekly Assessments</h1>
+<div class="bar">
+  <select id="batch" aria-label="Batch"></select>
+  <button id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button id="next" aria-label="Next week">›</button>
+  <button id="cur">This week</button><span class="sp"></span>
+  <span class="live" id="live"></span><a href="teacher.html">Teacher login</a>
+</div>
+<div class="card"><table><thead><tr><th>Subject</th><th>Date given</th><th>Deadline</th><th>Assessment</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden></div></div>
+</main><script src="week.js"></script><script src="student.js"></script></body></html>

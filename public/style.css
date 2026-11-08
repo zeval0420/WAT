@@ -1,0 +1,23 @@
+:root{--bg:#f6f7f9;--fg:#1d2330;--card:#fff;--line:#dde1e8;--accent:#2457d6;--mut:#667085;--ok:#13795b;--warn:#b54708}
+@media (prefers-color-scheme:dark){:root{--bg:#12151c;--fg:#e8eaf0;--card:#1b202b;--line:#2c3342;--accent:#6b93ff;--mut:#9aa3b5;--ok:#4cc9a0;--warn:#f0a35e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2rem 0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.bar .sp{flex:1}
+button,select,input,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 11px}
+button{cursor:pointer}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.danger{color:var(--warn)}button:disabled{opacity:.5;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto}
+table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}tr:last-child td{border-bottom:0}
+.empty{padding:28px;text-align:center;color:var(--mut)}
+.pill{font-size:.8rem;padding:2px 9px;border-radius:99px;border:1px solid var(--line)}
+.pill.ok{color:var(--ok);border-color:var(--ok)}.pill.no{color:var(--warn);border-color:var(--warn)}
+.wk{font-weight:600;min-width:11em;text-align:center}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;padding:14px;margin-bottom:12px}
+.form .wide{grid-column:1/-1}.form label{display:flex;flex-direction:column;gap:3px;font-size:.85rem;color:var(--mut)}
+.acts{white-space:nowrap;display:flex;gap:6px}
+.err{color:var(--warn)}.login{max-width:340px;margin:60px auto;display:grid;gap:10px;padding:20px}
+.live{font-size:.8rem;color:var(--mut)}
+@media(max-width:600px){th:nth-child(3),td:nth-child(3){white-space:nowrap}}

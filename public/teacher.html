@@ -1,0 +1,28 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WAT – Teacher</title><link rel="stylesheet" href="style.css"></head><body><main>
+<section id="login" class="card login" hidden>
+  <h1>Teacher login</h1>
+  <input id="u" placeholder="Username" autocomplete="username">
+  <input id="p" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="primary" id="go">Log in</button><div id="lerr" class="err"></div>
+  <a href="/">← Student view</a>
+</section>
+<section id="app" hidden>
+  <h1>Manage assessments</h1>
+  <div class="bar">
+    <select id="batch" aria-label="Batch"></select>
+    <button id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button id="next" aria-label="Next week">›</button>
+    <button id="cur">This week</button><span id="status" class="pill"></span><span class="sp"></span>
+    <button id="approve" hidden></button><span id="who" class="live"></span><button id="out">Log out</button>
+  </div>
+  <form id="form" class="card form">
+    <label>Subject<select id="subj" required></select></label>
+    <label>New subject<span style="display:flex;gap:6px"><input id="newsubj" placeholder="e.g. Physics" style="min-width:0;flex:1"><button type="button" id="addsubj">Add</button></span></label>
+    <label>Date given<input id="given" type="date" required></label>
+    <label>Deadline<input id="due" type="date" required></label>
+    <label class="wide">Assessment description<textarea id="desc" rows="2" required></textarea></label>
+    <div class="wide acts"><button class="primary" id="save">Add entry</button><button type="button" id="cancel" hidden>Cancel edit</button><span id="ferr" class="err"></span></div>
+  </form>
+  <div class="card"><table><thead><tr><th>Subject</th><th>Date given</th><th>Deadline</th><th>Assessment</th><th></th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No entries this week.</div></div>
+</section>
+</main><script src="week.js"></script><script src="teacher.js"></script></body></html>
