@@ -70,14 +70,19 @@ app.get('/api/week', wrap(async (req, res) => {
 // ---------- teacher auth (existing accounts table) ----------
 app.post('/api/login', wrap(async (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
+  const u = String(username || '').trim();
+  if (!u && !password) return res.status(400).json({ error: 'Enter your username and password.', fields: { username: 'Username is required', password: 'Password is required' } });
+  if (!u) return res.status(400).json({ error: 'Enter your username.', fields: { username: 'Username is required' } });
+  if (!password) return res.status(400).json({ error: 'Enter your password.', fields: { password: 'Password is required' } });
   const [rows] = await db.query(
-    "SELECT employeeID, username, firstname, lastname, password FROM accounts WHERE username=? AND status='active'", [username]);
+    "SELECT employeeID, username, firstname, lastname, password, status FROM accounts WHERE username=?", [u]);
   // accounts store unsalted MD5 (shared with reserve-a-lab); compare in constant time
   const hash = crypto.createHash('md5').update(password).digest('hex');
   const ok = rows[0] && rows[0].password.length === hash.length &&
     crypto.timingSafeEqual(Buffer.from(rows[0].password), Buffer.from(hash));
-  if (!ok) return res.status(401).json({ error: 'Invalid username or password' });
+  if (!rows[0]) return res.status(401).json({ error: 'No account found with that username.', fields: { username: 'Username not found' } });
+  if (!ok) return res.status(401).json({ error: 'Incorrect password.', fields: { password: 'Incorrect password' } });
+  if (rows[0].status !== 'active') return res.status(403).json({ error: 'This account is inactive. Contact the administrator.', fields: { username: 'Account inactive' } });
   await new Promise((r) => req.session.regenerate(r));
   req.session.user = { id: rows[0].employeeID, name: `${rows[0].firstname} ${rows[0].lastname}` };
   res.json({ ok: true });

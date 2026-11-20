@@ -3,8 +3,8 @@ const sel = $('batch');
 
 async function boot() {
   me = (await api('/api/me')).user;
-  $('login').hidden = !!me; $('app').hidden = !me;
-  if (!me) return;
+  if (!me) { location.replace('/login.html'); return; }
+  $('app').hidden = false;
   $('who').textContent = me.name;
   const batches = await api('/api/batches');
   sel.innerHTML = batches.map((b) => `<option>${esc(b)}</option>`).join('');
@@ -46,12 +46,7 @@ const go = (n) => { start = addDays(start, n); load(); };
 $('prev').onclick = () => go(-7); $('next').onclick = () => go(7);
 $('cur').onclick = () => { start = mondayOf(iso(new Date())); load(); };
 sel.onchange = load;
-$('go').onclick = async () => {
-  try { await api('/api/login', 'POST', { username: $('u').value, password: $('p').value }); $('p').value = ''; boot(); }
-  catch (e) { $('lerr').textContent = e.message; }
-};
-$('p').onkeydown = (e) => { if (e.key === 'Enter') $('go').click(); };
-$('out').onclick = async () => { await api('/api/logout', 'POST'); boot(); };
+$('out').onclick = async () => { await api('/api/logout', 'POST'); location.replace('/login.html'); };
 $('addsubj').onclick = async () => {
   const name = $('newsubj').value.trim(); if (!name) return;
   const s = await api('/api/subjects', 'POST', { name }); $('newsubj').value = ''; await loadSubjects(s.id);

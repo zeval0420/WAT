@@ -7,9 +7,12 @@ const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
 async function api(url, method = 'GET', body) {
-  const r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body && JSON.stringify(body) });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status });
+  let r;
+  try { r = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body && JSON.stringify(body) }); }
+  catch { throw Object.assign(new Error('Cannot reach the server. Check your connection and try again.'), { status: 0 }); }
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw Object.assign(new Error((j && j.error) || `Unexpected server response (${r.status}). The server may need a restart.`), { status: r.status, fields: j && j.fields });
+  if (j === null) throw Object.assign(new Error('Unexpected server response. The server may need a restart.'), { status: r.status });
   return j;
 }
 function onLive(handler) { // reconnecting SSE

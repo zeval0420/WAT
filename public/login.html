@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WAT – Teacher login</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="/">Student view</a></header><main>
+<form id="lf" class="card login-card" novalidate>
+  <h1>Teacher login</h1>
+  <p class="hint">Sign in with your school account.</p>
+  <div id="banner" class="banner" role="alert" hidden></div>
+  <div class="field"><label for="u">Username</label>
+    <input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus aria-describedby="u-err">
+    <div class="ferr" id="u-err"></div></div>
+  <div class="field"><label for="p">Password</label>
+    <div class="pw"><input id="p" name="password" type="password" autocomplete="current-password" aria-describedby="p-err">
+    <button type="button" id="show" class="ghost" aria-pressed="false">Show</button></div>
+    <div class="ferr" id="p-err"></div></div>
+  <button class="primary" id="go" type="submit">Log in</button>
+  <a href="/">← Student view</a>
+</form>
+</main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
+<script src="week.js"></script>
+<script>
+const form = $('lf'), banner = $('banner'), go = $('go');
+const inputs = { username: $('u'), password: $('p') }, errs = { username: $('u-err'), password: $('p-err') };
+function clear() {
+  banner.hidden = true;
+  for (const k in inputs) { inputs[k].removeAttribute('aria-invalid'); inputs[k].classList.remove('bad'); errs[k].textContent = ''; }
+}
+function show(fields, msg) {
+  clear();
+  const keys = Object.keys(fields || {}).filter((k) => inputs[k]);
+  keys.forEach((k) => { inputs[k].setAttribute('aria-invalid', 'true'); inputs[k].classList.add('bad'); errs[k].textContent = fields[k]; });
+  if (!keys.length) { banner.textContent = msg; banner.hidden = false; }
+  else inputs[keys[0]].focus();
+  if (keys.length && keys[0] === 'password') inputs.password.select();
+}
+for (const k in inputs) inputs[k].addEventListener('input', () => { inputs[k].classList.remove('bad'); inputs[k].removeAttribute('aria-invalid'); errs[k].textContent = ''; banner.hidden = true; });
+$('show').onclick = (e) => { const t = $('p').type === 'password'; $('p').type = t ? 'text' : 'password'; e.target.textContent = t ? 'Hide' : 'Show'; e.target.setAttribute('aria-pressed', t); };
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  const username = $('u').value.trim(), password = $('p').value, f = {};
+  if (!username) f.username = 'Username is required';
+  if (!password) f.password = 'Password is required';
+  if (Object.keys(f).length) return show(f);
+  clear(); go.disabled = true; go.textContent = 'Logging in…';
+  try { await api('/api/login', 'POST', { username, password }); go.textContent = 'Success – redirecting…'; location.replace('/teacher.html'); }
+  catch (err) { go.disabled = false; go.textContent = 'Log in'; show(err.fields, err.message); }
+};
+api('/api/me').then((r) => { if (r.user) location.replace('/teacher.html'); }).catch(() => {});
+</script></body></html>
