@@ -210,6 +210,10 @@ app.post('/api/teacher/approve', guard(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.get('/', (req, res) => res.redirect(`public/${req.url.slice(1)}`));
+
+const servePublic = express.static(path.join(__dirname, '..', 'public'));
+app.use('/public', servePublic);
+app.use(servePublic);
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`WAT running on http://localhost:${port}`));
