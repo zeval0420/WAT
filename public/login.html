@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WAT – Teacher login</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="/">Student view</a></header><main>
+<title>WAT – Teacher login</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="./">Student view</a></header><main>
 <form id="lf" class="card login-card" novalidate>
   <h1>Teacher login</h1>
   <p class="hint">Sign in with your school account.</p>
@@ -12,7 +12,7 @@
     <button type="button" id="show" class="ghost" aria-pressed="false">Show</button></div>
     <div class="ferr" id="p-err"></div></div>
   <button class="primary" id="go" type="submit">Log in</button>
-  <a href="/">← Student view</a>
+  <a href="./">← Student view</a>
 </form>
 </main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
 <script src="week.js"></script>
@@ -40,8 +40,8 @@ form.onsubmit = async (e) => {
   if (!password) f.password = 'Password is required';
   if (Object.keys(f).length) return show(f);
   clear(); go.disabled = true; go.textContent = 'Logging in…';
-  try { await api('/api/login', 'POST', { username, password }); go.textContent = 'Success – redirecting…'; location.replace('/teacher.html'); }
+  try { await api('/api/login', 'POST', { username, password }); go.textContent = 'Success – redirecting…'; location.replace('teacher.html'); }
   catch (err) { go.disabled = false; go.textContent = 'Log in'; show(err.fields, err.message); }
 };
-api('/api/me').then((r) => { if (r.user) location.replace('/teacher.html'); }).catch(() => {});
+api('/api/me').then((r) => { if (r.user) location.replace('teacher.html'); }).catch(() => {});
 </script></body></html>

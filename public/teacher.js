@@ -3,7 +3,7 @@ const sel = $('batch');
 
 async function boot() {
   me = (await api('/api/me')).user;
-  if (!me) { location.replace('/login.html'); return; }
+  if (!me) { location.replace('login.html'); return; }
   $('app').hidden = false;
   $('who').textContent = me.name;
   const batches = await api('/api/batches');
@@ -46,7 +46,7 @@ const go = (n) => { start = addDays(start, n); load(); };
 $('prev').onclick = () => go(-7); $('next').onclick = () => go(7);
 $('cur').onclick = () => { start = mondayOf(iso(new Date())); load(); };
 sel.onchange = load;
-$('out').onclick = async () => { await api('/api/logout', 'POST'); location.replace('/login.html'); };
+$('out').onclick = async () => { await api('/api/logout', 'POST'); location.replace('login.html'); };
 $('addsubj').onclick = async () => {
   const name = $('newsubj').value.trim(); if (!name) return;
   const s = await api('/api/subjects', 'POST', { name }); $('newsubj').value = ''; await loadSubjects(s.id);
