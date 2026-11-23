@@ -18,7 +18,7 @@ async function boot() {
   $('app').hidden = false;
   $('who').textContent = me.name;
   const { batches, adviserOf } = await api('teacherBatches');
-  sel.innerHTML = batches.map((b) => `<option>${esc(b)}</option>`).join('');
+  setGradeOptions(sel, batches);
   const own = adviserOf[0];
   if (own) sel.value = own;
   $('empty').hidden = batches.length > 0;
@@ -101,7 +101,7 @@ function openEditor(day, item) {
   $('desc').value = item?.description || '';
   $('implementation').value = item?.implementation || '';
   $('remarks').value = item?.remarks || '';
-  $('editor-title').textContent = editing ? 'Edit assessment' : 'Add assessment';
+  $('editor-title').textContent = (editing ? 'Edit assessment for ' : 'Add assessment for ') + sel.value;
   $('save').textContent = editing ? 'Save changes' : 'Add assessment';
   $('ferr').textContent = '';
   updateGivenLabel();
@@ -179,7 +179,7 @@ grid.onclick = async (event) => {
   if (remove && confirm('Delete this assessment?')) {
     showError();
     try {
-      await api('assessment', 'DELETE', null, { id: remove });
+      await api('assessment', 'DELETE', null, { id: remove, batch: sel.value });
       if (String(editing) === remove) form.hidden = true;
       await load();
     } catch (error) { showError(error); }

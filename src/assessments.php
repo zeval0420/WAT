@@ -1,4 +1,12 @@
 <?php
+// These grade levels use the existing batch key on assessments, approvals, and adviser assignments.
+const ASSESSMENT_GRADES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+
+function assessmentGroups($adviserRows)
+{
+    return array_values(array_unique(array_merge(ASSESSMENT_GRADES, array_column($adviserRows, 'batch'))));
+}
+
 function validDate($value)
 {
     if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
@@ -61,7 +69,7 @@ function saveAssessment($db, $user, $method, $input, $id)
     $old = null;
     if ($method !== 'POST') {
         $old = rows($db, 'SELECT * FROM wat_assessments WHERE id=?', [$id])[0] ?? null;
-        if (!$old) {
+        if (!$old || (isset($input['batch']) && $input['batch'] !== $old['batch'])) {
             reply(['error' => 'Assessment not found.'], 404);
         }
         if ($old['teacher_id'] !== $user['id'] && !canManageBatch($user, $old['batch'])) {
@@ -97,7 +105,8 @@ function saveAssessment($db, $user, $method, $input, $id)
             assessment_type=?, topic=?, implementation=?, remarks=? WHERE id=?', $values);
         return ['ok' => true];
     }
-    if (!rows($db, 'SELECT 1 FROM wat_batch_advisers WHERE batch=? LIMIT 1', [$batch])) {
+    if (!in_array($batch, ASSESSMENT_GRADES, true) &&
+        !rows($db, 'SELECT 1 FROM wat_batch_advisers WHERE batch=? LIMIT 1', [$batch])) {
         reply(['error' => 'Unknown batch.'], 400);
     }
     $values[] = $batch;

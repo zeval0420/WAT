@@ -6,6 +6,18 @@ const fmt = (s) => new Date(s + 'T00:00:00').toLocaleDateString(undefined, { wee
 const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
+function setGradeOptions(select, batches) {
+  const grades = document.createElement('optgroup');
+  grades.label = 'Grade levels';
+  const legacy = document.createElement('optgroup');
+  legacy.label = 'Existing batches';
+  for (const batch of batches) {
+    const group = /^Grade (?:[7-9]|1[0-2])$/.test(batch) ? grades : legacy;
+    group.append(new Option(batch, batch));
+  }
+  select.replaceChildren(grades);
+  if (legacy.children.length) select.append(legacy);
+}
 let csrfToken = '';
 async function api(action, method = 'GET', body, query = {}) {
   const url = new URL('ajax/wat.php', window.location.href);

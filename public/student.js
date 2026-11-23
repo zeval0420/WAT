@@ -18,11 +18,16 @@ const go = (n) => { start = addDays(start, n); load(); };
 $('prev').onclick = () => go(-7);
 $('next').onclick = () => go(7);
 $('cur').onclick = () => { start = mondayOf(iso(new Date())); load(); };
-sel.onchange = () => { try { localStorage.setItem('wat_batch', sel.value); } catch {} load(); };
+sel.onchange = () => {
+  try { localStorage.setItem('wat_batch', sel.value); } catch {}
+  $('rows').replaceChildren();
+  $('empty').hidden = true;
+  load().catch((error) => { $('empty').textContent = error.message; $('empty').hidden = false; });
+};
 
 (async () => {
   const batches = await api('batches');
-  sel.innerHTML = batches.map((b) => `<option>${esc(b)}</option>`).join('');
+  setGradeOptions(sel, batches);
   let saved; try { saved = localStorage.getItem('wat_batch'); } catch {}
   if (batches.includes(saved)) sel.value = saved;
   if (!batches.length) $('empty').textContent = 'No batches set up yet.';

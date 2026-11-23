@@ -45,14 +45,14 @@ try {
 
     $db = watDatabase();
     if ($action === 'batches') {
-        reply(array_column(rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch'), 'batch'));
+        reply(assessmentGroups(rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch')));
     }
     if ($action === 'week') {
         reply(weekData($db, null, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
     }
     if ($action === 'teacherBatches') {
         $batches = rows($db, 'SELECT batch, MAX(employeeID=?) AS advises FROM wat_batch_advisers GROUP BY batch ORDER BY batch', [$user['id']]);
-        reply(['batches' => array_column($batches, 'batch'),
+        reply(['batches' => assessmentGroups($batches),
             'adviserOf' => array_column(array_filter($batches, static function ($row) { return $row['advises']; }), 'batch')]);
     }
     if (in_array($action, ['teacherWeek', 'assessment', 'approve'], true)) {
@@ -98,6 +98,9 @@ try {
             }
             reply(['ok' => true]);
         case 'assessment':
+            if ($method === 'DELETE' && isset($_GET['batch'])) {
+                $input['batch'] = $_GET['batch'];
+            }
             reply(saveAssessment($db, $user, $method, $input, $_GET['id'] ?? null));
     }
 } catch (Throwable $error) {
