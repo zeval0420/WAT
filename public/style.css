@@ -89,11 +89,35 @@ tbody tr:hover{background:var(--tint)}
   .header .nav-link{padding:5px 12px}
   .bar .sp{display:none}.bar #batch{flex:1}.wk{min-width:0;flex:1}
   th,td{padding:10px}
-  #rows td:nth-child(2),thead th:nth-child(2){display:none} /* "Date given" is secondary */
+  #rows td:nth-child(2),table:not(.assessment-grid) thead th:nth-child(2){display:none} /* "Date given" is secondary */
   .acts{flex-wrap:wrap;white-space:normal}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 td.acts{display:table-cell}td.acts button{margin-right:6px}
+
+.teacher-main{max-width:1520px}
+.teacher-main .form[hidden]{display:none}
+.teacher-main .form{scroll-margin-top:100px}
+.teacher-main .form h2{margin:0;font-size:1.1rem}
+.assessment-scroll{max-height:65vh}
+.assessment-grid{min-width:1050px;border-collapse:separate;border-spacing:0;font-size:13px}
+.assessment-grid th,.assessment-grid td{padding:8px 10px;border-bottom:1px solid var(--color-border);border-right:1px solid var(--color-border)}
+.assessment-grid th:last-child,.assessment-grid td:last-child{border-right:0}
+.assessment-grid thead th{position:sticky;top:0;z-index:2;background:var(--color-bg);min-width:86px}
+.assessment-grid thead th:first-child,.assessment-grid th[scope="rowgroup"]{position:sticky;left:0}
+.assessment-grid thead th:first-child{z-index:3}
+.assessment-grid th[scope="rowgroup"]{z-index:1;vertical-align:middle;min-width:86px;background:#f4f7fe;color:var(--color-primary);text-align:center;text-transform:none}
+.assessment-grid time strong{display:block;font-size:14px}
+.assessment-grid td{white-space:pre-wrap;overflow-wrap:anywhere}
+.assessment-grid td.grid-actions{white-space:nowrap}
+.grid-actions button,.grid-add button{padding:4px 9px;font-size:12px}
+.assessment-grid tbody+tbody tr:first-child>*{border-top:2px solid var(--tint-border)}
+.assessment-grid .grid-add td{background:#fafbfe}
+.assessment-tag{display:inline-block;padding:2px 8px;border-radius:12px;background:var(--color-bg);color:var(--color-primary);white-space:normal}
+.assessment-tag--formative{background:#dcf3e5;color:#175b39}
+.assessment-tag--summative{background:#fff0c4;color:#684900}
+.assessment-tag--alternative{background:#dceafa;color:#1f5093}
+.assessment-tag--async{background:#fbe2df;color:#842b24}
 
 /* login page */
 .login-card{max-width:400px;margin:var(--space-xl) auto;padding:var(--space-lg);display:flex;flex-direction:column;gap:var(--space-md);overflow:visible}

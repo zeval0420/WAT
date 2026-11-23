@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WAT – Teacher</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="./">Student view</a></header><main>
+<title>WAT – Teacher</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="./">Student view</a></header><main class="teacher-main">
 <section id="app" hidden>
   <h1>Manage assessments</h1>
   <div class="bar">
@@ -8,14 +8,25 @@
     <button id="cur">This week</button><span id="status" class="pill"></span><span class="sp"></span>
     <button id="approve" hidden></button><span id="who" class="live"></span><button id="out">Log out</button>
   </div>
-  <form id="form" class="card form">
+  <p id="grid-error" class="err" role="alert" hidden></p>
+  <form id="form" class="card form" hidden>
+    <h2 id="editor-title" class="wide">Add assessment</h2>
+    <label>Assessment type<select id="assessment-type"><option value="">Select type</option><option value="formative">Formative Assessment</option><option value="summative">Summative Assessment</option><option value="alternative">Alternative Assessment</option></select></label>
     <label>Subject<select id="subj" required></select></label>
     <label>New subject<span style="display:flex;gap:6px"><input id="newsubj" placeholder="e.g. Physics" style="min-width:0;flex:1"><button type="button" id="addsubj">Add</button></span></label>
-    <label>Date given<input id="given" type="date" required></label>
+    <label>Nature of implementation<select id="implementation"><option value="">Select implementation</option><option value="sync">Synchronous (in class)</option><option value="async">Asynchronous</option></select></label>
+    <label><span id="given-label">Date given</span><input id="given" type="date" required></label>
     <label>Deadline<input id="due" type="date" required></label>
+    <label class="wide">Topic / Lesson<input id="topic" maxlength="255"></label>
     <label class="wide">Assessment description<textarea id="desc" rows="2" required></textarea></label>
-    <div class="wide acts"><button class="primary" id="save">Add entry</button><button type="button" id="cancel" hidden>Cancel edit</button><span id="ferr" class="err"></span></div>
+    <label class="wide">Remarks<textarea id="remarks" rows="2" maxlength="4000"></textarea></label>
+    <div class="wide acts"><button class="primary" id="save">Add assessment</button><button type="button" id="cancel">Cancel</button><span id="ferr" class="err" role="alert"></span></div>
   </form>
-  <div class="card"><table><thead><tr><th>Subject</th><th>Date given</th><th>Deadline</th><th>Assessment</th><th></th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No entries this week.</div></div>
+  <div class="card assessment-scroll" tabindex="0" role="region" aria-label="Weekly assessment grid">
+    <table class="assessment-grid" aria-label="Weekly assessments">
+      <thead><tr><th scope="col">Date</th><th scope="col">Assessment type</th><th scope="col">Subject</th><th scope="col">Topic / Lesson</th><th scope="col">Assessment description</th><th scope="col">Nature of implementation</th><th scope="col">Date started (async)</th><th scope="col">Remarks</th><th scope="col">Actions</th></tr></thead>
+    </table>
+    <div id="empty" class="empty" hidden>No batches set up yet.</div>
+  </div>
 </section>
 </main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer><script src="week.js"></script><script src="teacher.js"></script></body></html>

@@ -1,8 +1,19 @@
-let start = mondayOf(iso(new Date())), items = [], editing = null, me = null, isAdviser = false, approved = false;
+let start = mondayOf(iso(new Date()));
+let items = [], editing = null, approved = false, loadVersion = 0, saving = false;
 const sel = $('batch');
+const grid = document.querySelector('.assessment-grid');
+const form = $('form');
+const types = { formative: 'Formative Assessment', summative: 'Summative Assessment', alternative: 'Alternative Assessment' };
+const modes = { sync: 'Synchronous (in class)', async: 'Asynchronous' };
+const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+
+function showError(error) {
+  $('grid-error').hidden = !error;
+  $('grid-error').textContent = error?.message || '';
+}
 
 async function boot() {
-  me = (await api('/api/me')).user;
+  const me = (await api('/api/me')).user;
   if (!me) { location.replace('login.html'); return; }
   $('app').hidden = false;
   $('who').textContent = me.name;
@@ -10,70 +21,169 @@ async function boot() {
   sel.innerHTML = batches.map((b) => `<option>${esc(b)}</option>`).join('');
   const own = me.adviserOf.find((b) => batches.includes(b));
   if (own) sel.value = own;
+  $('empty').hidden = batches.length > 0;
+  grid.hidden = !batches.length;
   await loadSubjects();
-  resetForm();
-  load();
-  onLive((m) => { if (m.batch === sel.value && m.week === start) load(); });
+  await load();
+  const live = onLive((m) => { if (m.batch === sel.value && m.week === start) load(); });
+  live.onopen = load;
 }
-async function loadSubjects(pick) {
-  const s = await api('/api/subjects');
-  $('subj').innerHTML = s.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
-  if (pick) $('subj').value = pick;
+
+async function loadSubjects(pick = $('subj').value) {
+  const subjects = await api('/api/subjects');
+  $('subj').innerHTML = subjects.map((subject) => `<option value="${subject.id}">${esc(subject.name)}</option>`).join('');
+  if (subjects.some((subject) => String(subject.id) === String(pick))) $('subj').value = pick;
 }
+
+function tag(value, labels) {
+  if (!Object.hasOwn(labels, value)) return '';
+  return `<span class="assessment-tag assessment-tag--${value}">${labels[value]}</span>`;
+}
+
+function renderGrid() {
+  for (const group of [...grid.tBodies]) group.remove();
+  for (let offset = 0; offset < 7; offset++) {
+    const day = addDays(start, offset);
+    const entries = items.filter((item) => item.deadline === day);
+    const group = grid.createTBody();
+    const date = `<th scope="rowgroup" rowspan="${entries.length + 1}"><time datetime="${day}"><strong>${esc(dayName.format(new Date(day + 'T00:00:00')))}</strong>${fmt(day)}</time></th>`;
+    group.innerHTML = entries.map((item, index) => `<tr>
+      ${index === 0 ? date : ''}
+      <td>${tag(item.assessment_type, types)}</td>
+      <td>${esc(item.subject)}${item.teacher ? `<div class="live">${esc(item.teacher)}</div>` : ''}</td>
+      <td>${esc(item.topic || '')}</td>
+      <td>${esc(item.description)}</td>
+      <td>${tag(item.implementation, modes)}</td>
+      <td>${item.implementation === 'async' ? fmt(item.date_given) : ''}</td>
+      <td>${esc(item.remarks || '')}</td>
+      <td class="grid-actions"><button type="button" data-edit="${item.id}">Edit</button> <button type="button" class="danger" data-delete="${item.id}">Delete</button></td>
+    </tr>`).join('') + `<tr class="grid-add">${entries.length ? '' : date}
+      <td colspan="8"><button type="button" data-add="${day}" aria-label="Add assessment for ${fmt(day)}">+ Add assessment</button></td>
+    </tr>`;
+  }
+}
+
 async function load() {
   if (!sel.value) return;
-  let w;
-  try { w = await api(`/api/teacher/week?batch=${encodeURIComponent(sel.value)}&start=${start}`); }
-  catch (e) { if (e.status === 401) return boot(); throw e; }
-  items = w.items; isAdviser = w.isAdviser; approved = w.approved;
-  $('wk').textContent = rangeLabel(w.start, w.end);
-  const st = $('status'); st.textContent = approved ? 'Visible to students' : 'Not yet approved'; st.className = 'pill ' + (approved ? 'ok' : 'no');
-  const ap = $('approve'); ap.hidden = !isAdviser; ap.textContent = approved ? 'Withdraw approval' : 'Approve week'; ap.className = approved ? '' : 'primary';
-  $('empty').hidden = items.length > 0;
-  $('rows').innerHTML = items.map((a) => `<tr>
-    <td>${esc(a.subject)}${isAdviser && a.teacher ? `<div class="live">${esc(a.teacher)}</div>` : ''}</td>
-    <td>${fmt(a.date_given)}</td>
-    <td>${fmt(a.deadline)}<br><input type="date" value="${a.deadline}" data-move="${a.id}" aria-label="Move deadline"></td>
-    <td>${esc(a.description)}</td>
-    <td class="acts"><button data-edit="${a.id}">Edit</button><button class="danger" data-del="${a.id}">Delete</button></td></tr>`).join('');
+  const version = ++loadVersion;
+  try {
+    const w = await api(`/api/teacher/week?batch=${encodeURIComponent(sel.value)}&start=${start}`);
+    if (version !== loadVersion) return;
+    items = w.items;
+    approved = w.approved;
+    $('wk').textContent = rangeLabel(w.start, w.end);
+    $('status').textContent = approved ? 'Visible to students' : 'Not yet approved';
+    $('status').className = 'pill ' + (approved ? 'ok' : 'no');
+    const approve = $('approve');
+    approve.hidden = !w.isAdviser;
+    approve.textContent = approved ? 'Withdraw approval' : 'Approve week';
+    approve.className = approved ? '' : 'primary';
+    renderGrid();
+  } catch (error) {
+    if (version !== loadVersion) return;
+    if (error.status === 401) location.replace('login.html');
+    else showError(error);
+  }
 }
-function resetForm() {
-  editing = null; $('form').reset();
-  $('given').value = iso(new Date()); $('due').value = start > iso(new Date()) ? start : iso(new Date());
-  $('save').textContent = 'Add entry'; $('cancel').hidden = true; $('ferr').textContent = '';
+
+function updateGivenLabel() {
+  $('given-label').textContent = $('implementation').value === 'async' ? 'Date started (async)' : 'Date given';
 }
-const go = (n) => { start = addDays(start, n); load(); };
-$('prev').onclick = () => go(-7); $('next').onclick = () => go(7);
-$('cur').onclick = () => { start = mondayOf(iso(new Date())); load(); };
-sel.onchange = load;
-$('out').onclick = async () => { await api('/api/logout', 'POST'); location.replace('login.html'); };
+
+function openEditor(day, item) {
+  editing = item?.id ?? null;
+  form.reset();
+  if (item) $('subj').value = item.subject_id;
+  const today = iso(new Date());
+  $('given').value = item?.date_given || (today > day ? day : today);
+  $('due').value = day;
+  $('assessment-type').value = item?.assessment_type || '';
+  $('topic').value = item?.topic || '';
+  $('desc').value = item?.description || '';
+  $('implementation').value = item?.implementation || '';
+  $('remarks').value = item?.remarks || '';
+  $('editor-title').textContent = editing ? 'Edit assessment' : 'Add assessment';
+  $('save').textContent = editing ? 'Save changes' : 'Add assessment';
+  $('ferr').textContent = '';
+  updateGivenLabel();
+  form.hidden = false;
+  $('assessment-type').focus();
+  form.scrollIntoView({ block: 'nearest' });
+}
+
+function changeWeek(nextStart) {
+  start = nextStart;
+  form.hidden = true;
+  items = [];
+  for (const group of [...grid.tBodies]) group.remove();
+  $('wk').textContent = rangeLabel(start, addDays(start, 6));
+  $('status').className = 'pill';
+  $('status').textContent = '';
+  $('approve').hidden = true;
+  showError();
+  load();
+}
+$('prev').onclick = () => changeWeek(addDays(start, -7));
+$('next').onclick = () => changeWeek(addDays(start, 7));
+$('cur').onclick = () => changeWeek(mondayOf(iso(new Date())));
+sel.onchange = () => changeWeek(start);
+$('implementation').onchange = updateGivenLabel;
+$('cancel').onclick = () => { form.hidden = true; };
+$('out').onclick = async () => {
+  try { await api('/api/logout', 'POST'); location.replace('login.html'); }
+  catch (error) { showError(error); }
+};
 $('addsubj').onclick = async () => {
-  const name = $('newsubj').value.trim(); if (!name) return;
-  const s = await api('/api/subjects', 'POST', { name }); $('newsubj').value = ''; await loadSubjects(s.id);
+  try {
+    const subject = await api('/api/subjects', 'POST', { name: $('newsubj').value });
+    $('newsubj').value = '';
+    await loadSubjects(subject.id);
+  } catch (error) { $('ferr').textContent = error.message; }
 };
 $('approve').onclick = async () => {
-  await api('/api/teacher/approve', 'POST', { batch: sel.value, start, approved: !approved }); load();
+  showError();
+  try { await api('/api/teacher/approve', 'POST', { batch: sel.value, start, approved: !approved }); await load(); }
+  catch (error) { showError(error); }
 };
-$('form').onsubmit = async (e) => {
-  e.preventDefault();
-  const body = { batch: sel.value, subject_id: $('subj').value, date_given: $('given').value, deadline: $('due').value, description: $('desc').value };
+form.onsubmit = async (event) => {
+  event.preventDefault();
+  if (saving) return;
+  saving = $('save').disabled = true;
+  $('ferr').textContent = '';
+  const body = {
+    batch: sel.value, subject_id: $('subj').value,
+    date_given: $('given').value, deadline: $('due').value,
+    assessment_type: $('assessment-type').value, topic: $('topic').value,
+    description: $('desc').value, implementation: $('implementation').value,
+    remarks: $('remarks').value,
+  };
   try {
-    if (editing) await api(`/api/teacher/assessments/${editing}`, 'PUT', body); else await api('/api/teacher/assessments', 'POST', body);
-    resetForm(); load();
-  } catch (err) { $('ferr').textContent = err.message; }
+    if (editing) await api(`/api/teacher/assessments/${editing}`, 'PUT', body);
+    else await api('/api/teacher/assessments', 'POST', body);
+    form.hidden = true;
+    await load();
+  } catch (error) {
+    if (form.hidden) showError(error);
+    else $('ferr').textContent = error.message;
+  } finally {
+    saving = $('save').disabled = false;
+  }
 };
-$('cancel').onclick = resetForm;
-$('rows').onclick = async (e) => {
-  const ed = e.target.dataset.edit, del = e.target.dataset.del;
-  if (ed) {
-    const a = items.find((x) => x.id == ed); editing = a.id;
-    $('subj').value = a.subject_id; $('given').value = a.date_given; $('due').value = a.deadline; $('desc').value = a.description;
-    $('save').textContent = 'Save changes'; $('cancel').hidden = false; $('form').scrollIntoView({ behavior: 'smooth' });
-  } else if (del && confirm('Delete this entry?')) { await api(`/api/teacher/assessments/${del}`, 'DELETE'); load(); }
+grid.onclick = async (event) => {
+  const { add, edit, delete: remove } = event.target.dataset;
+  if (saving) return;
+  if (add) openEditor(add);
+  if (edit) {
+    const item = items.find((entry) => String(entry.id) === edit);
+    if (item) openEditor(item.deadline, item);
+  }
+  if (remove && confirm('Delete this assessment?')) {
+    showError();
+    try {
+      await api(`/api/teacher/assessments/${remove}`, 'DELETE');
+      if (String(editing) === remove) form.hidden = true;
+      await load();
+    } catch (error) { showError(error); }
+  }
 };
-$('rows').onchange = async (e) => { // move: change deadline
-  const id = e.target.dataset.move; if (!id || !e.target.value) return;
-  try { await api(`/api/teacher/assessments/${id}`, 'PUT', { deadline: e.target.value }); load(); }
-  catch (err) { alert(err.message); load(); }
-};
-boot();
+boot().catch((error) => { $('app').hidden = false; showError(error); });

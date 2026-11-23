@@ -143,7 +143,7 @@ app.get('/api/teacher/week', guard(async (req, res) => {
   const all = canEditAll(req.me, batch);
   const params = [batch, start, weekEnd(start)];
   let sql = `SELECT a.id, a.subject_id, s.name AS subject, a.date_given, a.deadline, a.description,
-                    a.teacher_id
+                    a.teacher_id, a.assessment_type, a.topic, a.implementation, a.remarks
              FROM wat_assessments a JOIN wat_subjects s ON s.id=a.subject_id
              WHERE a.batch=? AND a.deadline BETWEEN ? AND ?`;
   if (!all) { sql += ' AND a.teacher_id=?'; params.push(req.me.id); }
@@ -165,9 +165,16 @@ function readEntry(b) {
     date_given: b.date_given,
     deadline: b.deadline,
     description: String(b.description || '').trim(),
+    assessment_type: b.assessment_type || null,
+    topic: String(b.topic || '').trim() || null,
+    implementation: b.implementation || null,
+    remarks: String(b.remarks || '').trim() || null,
   };
   if (!e.batch || !e.subject_id || !validDate(e.date_given) || !validDate(e.deadline) || !e.description) return null;
   if (e.deadline < e.date_given) return null;
+  if (e.assessment_type && !['formative', 'summative', 'alternative'].includes(e.assessment_type)) return null;
+  if (e.implementation && !['sync', 'async'].includes(e.implementation)) return null;
+  if (e.topic?.length > 255 || e.remarks?.length > 4000) return null;
   return e;
 }
 async function batchExists(batch) {
@@ -179,8 +186,10 @@ app.post('/api/teacher/assessments', guard(async (req, res) => {
   if (!e) return res.status(400).json({ error: 'Invalid entry (check fields; deadline cannot precede date given)' });
   if (!(await batchExists(e.batch))) return res.status(400).json({ error: 'Unknown batch' });
   const [r] = await db.query(
-    'INSERT INTO wat_assessments (batch, subject_id, teacher_id, date_given, deadline, description) VALUES (?,?,?,?,?,?)',
-    [e.batch, e.subject_id, req.me.id, e.date_given, e.deadline, e.description]);
+    `INSERT INTO wat_assessments
+       (batch, subject_id, teacher_id, date_given, deadline, description, assessment_type, topic, implementation, remarks)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [e.batch, e.subject_id, req.me.id, e.date_given, e.deadline, e.description, e.assessment_type, e.topic, e.implementation, e.remarks]);
   broadcast(e.batch, weekStart(e.deadline));
   res.json({ id: r.insertId });
 }));
@@ -199,8 +208,10 @@ app.put('/api/teacher/assessments/:id', guard(async (req, res) => {
   const old = await ownedEntry(req, res); if (!old) return;
   const e = readEntry({ ...old, ...req.body, batch: old.batch }); // batch is fixed
   if (!e) return res.status(400).json({ error: 'Invalid entry' });
-  await db.query('UPDATE wat_assessments SET subject_id=?, date_given=?, deadline=?, description=? WHERE id=?',
-    [e.subject_id, e.date_given, e.deadline, e.description, old.id]);
+  await db.query(
+    `UPDATE wat_assessments SET subject_id=?, date_given=?, deadline=?, description=?,
+       assessment_type=?, topic=?, implementation=?, remarks=? WHERE id=?`,
+    [e.subject_id, e.date_given, e.deadline, e.description, e.assessment_type, e.topic, e.implementation, e.remarks, old.id]);
   broadcast(old.batch, weekStart(old.deadline));
   broadcast(old.batch, weekStart(e.deadline)); // covers a move to another week
   res.json({ ok: true });
