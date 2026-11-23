@@ -3,10 +3,10 @@
 <title>WAT – Weekly Assessments</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="login.html">Teacher login</a></header><main>
 <h1>Weekly Assessments</h1>
 <div class="bar">
-  <label for="batch">Grade level</label><select id="batch"></select>
+  <label for="batch">Grade level</label><select id="batch" disabled><option>Loading grade levels…</option></select>
   <button id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button id="next" aria-label="Next week">›</button>
   <button id="cur">This week</button><span class="sp"></span>
   <span class="live" id="live"></span>
 </div>
-<div class="card"><table><thead><tr><th>Subject</th><th>Date given</th><th>Deadline</th><th>Assessment</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden></div></div>
-</main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer><script src="week.js?v=253aebb2"></script><script src="student.js?v=cdf0f657"></script></body></html>
+<div class="card"><table><thead><tr><th>Subject</th><th>Date given</th><th>Deadline</th><th>Assessment</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" role="status" hidden></div></div>
+</main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer><script src="week.js?v=253aebb2"></script><script src="student.js?v=eed48ab9"></script></body></html>

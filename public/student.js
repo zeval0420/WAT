@@ -1,43 +1,72 @@
 let start = mondayOf(iso(new Date()));
-const sel = $('batch');
-
 let loadVersion = 0;
-async function load() {
-  if (!sel.value) return;
-  const version = ++loadVersion;
-  const w = await api('week', 'GET', null, { batch: sel.value, start });
-  if (version !== loadVersion) return;
-  $('wk').textContent = rangeLabel(w.start, w.end);
-  $('rows').innerHTML = w.items.map((a) =>
-    `<tr><td>${esc(a.subject)}</td><td>${fmt(a.date_given)}</td><td>${fmt(a.deadline)}</td><td>${esc(a.description)}</td></tr>`).join('');
-  const e = $('empty');
-  e.hidden = w.items.length > 0;
-  e.textContent = w.approved ? 'No assessments this week.' : 'This week’s list has not been approved yet.';
+const gradeSelect = $('batch');
+const rows = $('rows');
+const empty = $('empty');
+
+function gradeNumber(group) {
+  return /^Grade (7|8|9|10|11|12)$/.exec(group)?.[1];
 }
-const go = (n) => { start = addDays(start, n); load(); };
-$('prev').onclick = () => go(-7);
-$('next').onclick = () => go(7);
-$('cur').onclick = () => { start = mondayOf(iso(new Date())); load(); };
-sel.onchange = () => {
-  try { localStorage.setItem('wat_batch', sel.value); } catch {}
-  $('rows').replaceChildren();
-  $('empty').hidden = true;
-  load().catch((error) => { $('empty').textContent = error.message; $('empty').hidden = false; });
+
+function showMessage(message) {
+  empty.textContent = message;
+  empty.hidden = !message;
+}
+
+async function load({ reset = false } = {}) {
+  const group = gradeSelect.value;
+  if (!group) return;
+  const version = ++loadVersion;
+  const grade = gradeNumber(group);
+  if (reset) {
+    rows.replaceChildren();
+    $('wk').textContent = rangeLabel(start, addDays(start, 6));
+    showMessage('Loading assessments…');
+  }
+  try {
+    const week = await api('week', 'GET', null, grade ? { grade, start } : { batch: group, start });
+    if (version !== loadVersion) return;
+    $('wk').textContent = rangeLabel(week.start, week.end);
+    rows.innerHTML = week.items.map((item) =>
+      `<tr><td>${esc(item.subject)}</td><td>${fmt(item.date_given)}</td><td>${fmt(item.deadline)}</td><td>${esc(item.description)}</td></tr>`).join('');
+    const message = week.approved ? 'No assessments this week.' : 'This week’s assessments have not been published yet.';
+    showMessage(week.items.length ? '' : message);
+    $('live').textContent = '● live';
+  } catch (error) {
+    if (version !== loadVersion) return;
+    $('live').textContent = '';
+    showMessage(error.message);
+  }
+}
+
+function changeWeek(nextStart) {
+  start = nextStart;
+  load({ reset: true });
+}
+
+$('prev').onclick = () => changeWeek(addDays(start, -7));
+$('next').onclick = () => changeWeek(addDays(start, 7));
+$('cur').onclick = () => changeWeek(mondayOf(iso(new Date())));
+gradeSelect.onchange = () => {
+  try { localStorage.setItem('wat_batch', gradeSelect.value); } catch {}
+  load({ reset: true });
 };
 
 (async () => {
   const batches = await api('batches');
-  setGradeOptions(sel, batches);
-  let saved; try { saved = localStorage.getItem('wat_batch'); } catch {}
-  if (batches.includes(saved)) sel.value = saved;
-  if (!batches.length) $('empty').textContent = 'No batches set up yet.';
-  const refresh = async () => {
-    try { await load(); $('live').textContent = '● live'; }
-    catch { $('live').textContent = ''; }
-  };
-  await refresh();
-  watchWeek(refresh);
+  if (!batches.length) {
+    gradeSelect.replaceChildren(new Option('No grade levels available'));
+    showMessage('No grade levels are available.');
+    return;
+  }
+  setGradeOptions(gradeSelect, batches);
+  let saved;
+  try { saved = localStorage.getItem('wat_batch'); } catch {}
+  if (batches.includes(saved)) gradeSelect.value = saved;
+  gradeSelect.disabled = false;
+  await load({ reset: true });
+  watchWeek(load);
 })().catch((error) => {
-  $('empty').hidden = false;
-  $('empty').textContent = error.message;
+  gradeSelect.replaceChildren(new Option('Grade levels unavailable'));
+  showMessage(error.message);
 });

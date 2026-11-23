@@ -48,7 +48,15 @@ try {
         reply(assessmentGroups($db, rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch')));
     }
     if ($action === 'week') {
-        reply(weekData($db, null, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
+        $group = $_GET['batch'] ?? '';
+        if (isset($_GET['grade'])) {
+            $grade = $_GET['grade'];
+            if (!is_string($grade) || assessmentGrade('Grade ' . $grade) === null) {
+                reply(['error' => 'Select a grade from 7 to 12.'], 400);
+            }
+            $group = 'Grade ' . $grade;
+        }
+        reply(weekData($db, null, $group, $_GET['start'] ?? ''));
     }
     if ($action === 'teacherBatches') {
         $batches = rows($db, 'SELECT batch, MAX(employeeID=?) AS advises FROM wat_batch_advisers GROUP BY batch ORDER BY batch', [$user['id']]);
