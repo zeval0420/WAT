@@ -3,7 +3,7 @@ let items = [], editing = null, approved = false, loadVersion = 0, saving = fals
 const sel = $('batch');
 const grid = document.querySelector('.assessment-grid');
 const form = $('form');
-let subjectCatalog = [];
+let editorVersion = 0, originalSubject = null;
 const types = { formative: 'Formative Assessment', summative: 'Summative Assessment', alternative: 'Alternative Assessment' };
 const modes = { sync: 'Synchronous (in class)', async: 'Asynchronous' };
 const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
@@ -24,26 +24,27 @@ async function boot() {
   if (own) sel.value = own;
   $('empty').hidden = batches.length > 0;
   grid.hidden = !batches.length;
-  subjectCatalog = await api('subjects');
   await load();
   watchWeek(load);
 }
 
-function setSubjectOptions(item) {
+async function loadSubjectOptions(batch, current, version) {
   const select = $('subj');
-  const grade = /^Grade (7|8|9|10|11|12)$/.exec(sel.value);
-  const courses = subjectCatalog.filter(course => !grade || String(course.grade) === grade[1]);
-  select.replaceChildren(new Option(courses.length ? 'Select subject' : 'No active subjects available', ''));
-  for (const course of courses) {
-    const label = course.description ? course.name + ' — ' + course.description : course.name;
-    select.add(new Option(label, course.id));
-  }
-  if (item) {
-    const current = item.catalog_subject_id === null ? 'legacy' : String(item.catalog_subject_id);
-    if (!Array.from(select.options).some(option => option.value === current)) {
-      select.add(new Option(item.subject, current));
-    }
-    select.value = current;
+  select.disabled = true;
+  select.replaceChildren(new Option('Loading subjects…', ''));
+  try {
+    const courses = await api('subjects', 'GET', null, { batch });
+    if (version !== editorVersion) return;
+    select.replaceChildren(new Option(courses.length ? 'Select subject' : 'No active subjects available', ''));
+    const codes = new Set(courses.map(course => course.description));
+    if (current) codes.add(current);
+    for (const code of codes) select.add(new Option(code, code));
+    if (current) select.value = current;
+    select.disabled = false;
+  } catch (error) {
+    if (version !== editorVersion) return;
+    select.replaceChildren(new Option('Could not load subjects', ''));
+    $('ferr').textContent = error.message;
   }
 }
 
@@ -105,7 +106,7 @@ function updateGivenLabel() {
 function openEditor(day, item) {
   editing = item?.id ?? null;
   form.reset();
-  setSubjectOptions(item);
+  originalSubject = item?.subject ?? null;
   const today = iso(new Date());
   $('given').value = item?.date_given || (today > day ? day : today);
   $('due').value = day;
@@ -119,12 +120,14 @@ function openEditor(day, item) {
   $('ferr').textContent = '';
   updateGivenLabel();
   form.hidden = false;
+  loadSubjectOptions(sel.value, originalSubject, ++editorVersion);
   $('assessment-type').focus();
   form.scrollIntoView({ block: 'nearest' });
 }
 
 function changeWeek(nextStart) {
   start = nextStart;
+  editorVersion++;
   form.hidden = true;
   items = [];
   for (const group of [...grid.tBodies]) group.remove();
@@ -152,7 +155,7 @@ $('approve').onclick = async () => {
 };
 form.onsubmit = async (event) => {
   event.preventDefault();
-  if (saving) return;
+  if (saving || $('subj').disabled) return;
   saving = $('save').disabled = true;
   $('ferr').textContent = '';
   const body = {
@@ -162,7 +165,7 @@ form.onsubmit = async (event) => {
     description: $('desc').value, implementation: $('implementation').value,
     remarks: $('remarks').value,
   };
-  if ($('subj').value !== 'legacy') body.catalog_subject_id = $('subj').value;
+  if ($('subj').value !== originalSubject) body.subject_code = $('subj').value;
   try {
     if (editing) await api('assessment', 'PUT', body, { id: editing });
     else await api('assessment', 'POST', body);

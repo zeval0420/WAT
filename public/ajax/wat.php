@@ -45,14 +45,14 @@ try {
 
     $db = watDatabase();
     if ($action === 'batches') {
-        reply(assessmentGroups(rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch')));
+        reply(assessmentGroups($db, rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch')));
     }
     if ($action === 'week') {
         reply(weekData($db, null, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
     }
     if ($action === 'teacherBatches') {
         $batches = rows($db, 'SELECT batch, MAX(employeeID=?) AS advises FROM wat_batch_advisers GROUP BY batch ORDER BY batch', [$user['id']]);
-        reply(['batches' => assessmentGroups($batches),
+        reply(['batches' => assessmentGroups($db, $batches),
             'adviserOf' => array_column(array_filter($batches, static function ($row) { return $row['advises']; }), 'batch')]);
     }
     if (in_array($action, ['teacherWeek', 'assessment', 'approve'], true)) {
@@ -62,8 +62,13 @@ try {
         reply(weekData($db, $user, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
     }
     if ($action === 'subjects') {
-        reply(rows($db, "SELECT id, subjectCode AS name, subjectDescription AS description, subjectGradeLevel AS grade
-            FROM subject WHERE status='active' ORDER BY subjectCode, subjectDescription, id"));
+        $grade = assessmentGrade($_GET['batch'] ?? null);
+        $sql = "SELECT DISTINCT subjectCode AS description, subjectAcademicUnit AS unit
+                FROM subject WHERE status='active'";
+        if ($grade !== null) {
+            $sql .= ' AND subjectGradeLevel+0=?';
+        }
+        reply(rows($db, $sql . ' ORDER BY description, unit', $grade === null ? [] : [$grade]));
     }
     $input = [];
     if ($method !== 'DELETE') {

@@ -1,10 +1,14 @@
 <?php
-// These grade levels use the existing batch key on assessments, approvals, and adviser assignments.
-const ASSESSMENT_GRADES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-
-function assessmentGroups($adviserRows)
+function assessmentGrade($batch)
 {
-    return array_values(array_unique(array_merge(ASSESSMENT_GRADES, array_column($adviserRows, 'batch'))));
+    return is_string($batch) && preg_match('/^Grade (7|8|9|10|11|12)$/D', $batch, $match) ? $match[1] : null;
+}
+
+function assessmentGroups($db, $adviserRows)
+{
+    $grades = rows($db, 'SELECT DISTINCT grade FROM section WHERE grade IN (7,8,9,10,11,12) ORDER BY grade+0');
+    $groups = array_map(static function ($row) { return 'Grade ' . (int) $row['grade']; }, $grades);
+    return array_values(array_unique(array_merge($groups, array_column($adviserRows, 'batch'))));
 }
 
 function validDate($value)
@@ -31,27 +35,42 @@ function weekData($db, $user, $batch, $date)
     $start = $monday->format('Y-m-d');
     $end = $monday->modify('+6 days')->format('Y-m-d');
     $approved = (bool) rows($db, 'SELECT 1 FROM wat_week_approvals WHERE batch=? AND week_start=?', [$batch, $start]);
-    $items = [];
-    $params = [$batch, $start, $end];
-    $subjectName = 'COALESCE(CONVERT(s.subjectCode USING utf8mb4), legacy.name) AS subject';
-    $sql = ' FROM wat_assessments a
-             LEFT JOIN subject s ON s.id=a.catalog_subject_id
-             LEFT JOIN wat_subjects legacy ON legacy.id=a.subject_id
-             WHERE a.batch=? AND a.deadline BETWEEN ? AND ?';
-    $sort = ' ORDER BY a.deadline, subject';
-    if ($user === null) {
-        if ($approved) {
-            $items = rows($db, "SELECT a.id, $subjectName, a.date_given, a.deadline, a.description" . $sql . $sort, $params);
-        }
-        return compact('start', 'end', 'approved', 'items');
+    if ($user === null && !$approved) {
+        return compact('start', 'end', 'approved') + ['items' => []];
     }
 
-    $isAdviser = canManageBatch($user, $batch);
-    if (!$isAdviser) {
+    $params = [$batch, $start, $end];
+    $sql = 'SELECT a.*, legacy.name AS subject FROM wat_assessments a
+            LEFT JOIN wat_subjects legacy ON legacy.id=a.subject_id
+            WHERE a.batch=? AND a.deadline BETWEEN ? AND ?';
+    $isAdviser = $user !== null && canManageBatch($user, $batch);
+    if ($user !== null && !$isAdviser) {
         $sql .= ' AND a.teacher_id=?';
         $params[] = $user['id'];
     }
-    $items = rows($db, "SELECT a.*, $subjectName" . $sql . $sort, $params);
+    $items = rows($db, $sql . ' ORDER BY a.deadline, legacy.name', $params);
+
+    // Preserve entries saved by deployments that ran the earlier catalog migration.
+    $catalogIds = array_values(array_unique(array_filter(array_column($items, 'catalog_subject_id'))));
+    if ($catalogIds) {
+        $slots = implode(',', array_fill(0, count($catalogIds), '?'));
+        $codes = array_column(rows($db, "SELECT id, subjectCode FROM subject WHERE id IN ($slots)", $catalogIds), 'subjectCode', 'id');
+        foreach ($items as &$item) {
+            if (isset($item['catalog_subject_id'])) {
+                $item['subject'] = $codes[$item['catalog_subject_id']] ?? $item['subject'];
+            }
+        }
+        unset($item);
+        usort($items, static function ($a, $b) {
+            return strcmp($a['deadline'], $b['deadline']) ?: strcasecmp($a['subject'] ?? '', $b['subject'] ?? '');
+        });
+    }
+    if ($user === null) {
+        $publicFields = array_flip(['id', 'subject', 'date_given', 'deadline', 'description']);
+        $items = array_map(static function ($item) use ($publicFields) { return array_intersect_key($item, $publicFields); }, $items);
+        return compact('start', 'end', 'approved', 'items');
+    }
+
     // accounts and the WAT tables use different collations. Look names up separately.
     $ids = array_values(array_unique(array_column($items, 'teacher_id')));
     if ($ids) {
@@ -86,23 +105,12 @@ function saveAssessment($db, $user, $method, $input, $id)
 
     $entry = $input + ($old ?? []);
     $batch = $old['batch'] ?? ($entry['batch'] ?? '');
-    $legacySubject = $old['subject_id'] ?? null;
+    $grade = assessmentGrade($batch);
+    $subjectId = $old['subject_id'] ?? null;
     $catalogSubject = $old['catalog_subject_id'] ?? null;
-    if (array_key_exists('catalog_subject_id', $input)) {
-        $selected = filter_var($input['catalog_subject_id'], FILTER_VALIDATE_INT);
-        if (!$selected || $selected < 1) {
-            reply(['error' => 'Select a subject from the school catalog.'], 400);
-        }
-        if ($selected !== (int) $catalogSubject) {
-            $course = rows($db, "SELECT subjectGradeLevel FROM subject WHERE id=? AND status='active'", [$selected])[0] ?? null;
-            if (!$course || (in_array($batch, ASSESSMENT_GRADES, true) && $batch !== 'Grade ' . $course['subjectGradeLevel'])) {
-                reply(['error' => 'Select an active subject for this grade level.'], 400);
-            }
-        }
-        $catalogSubject = $selected;
-        $legacySubject = null;
-    }
-    if (!$catalogSubject && !$legacySubject) {
+    $subjectCode = $input['subject_code'] ?? null;
+    if (($subjectCode !== null && (!is_string($subjectCode) || $subjectCode === '')) ||
+        ($subjectCode === null && !$subjectId && !$catalogSubject)) {
         reply(['error' => 'Select a subject from the school catalog.'], 400);
     }
     $given = $entry['date_given'] ?? null;
@@ -118,21 +126,40 @@ function saveAssessment($db, $user, $method, $input, $id)
         !in_array($mode, ['', 'sync', 'async'], true)) {
         reply(['error' => 'Invalid entry. Check fields and deadline.'], 400);
     }
-    $values = [$legacySubject, $catalogSubject, $given, $due, $description, $type ?: null, $topic === '' ? null : $topic,
+    if (!$old) {
+        $groups = assessmentGroups($db, rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers'));
+        if (!in_array($batch, $groups, true)) {
+            reply(['error' => 'Unknown grade level or batch.'], 400);
+        }
+    }
+    if ($subjectCode !== null) {
+        $sql = "SELECT subjectCode FROM subject WHERE subjectCode=? AND status='active'";
+        $params = [$subjectCode];
+        if ($grade !== null) {
+            $sql .= ' AND subjectGradeLevel+0=?';
+            $params[] = $grade;
+        }
+        $course = rows($db, $sql . ' ORDER BY id LIMIT 1', $params)[0] ?? null;
+        if (!$course) {
+            reply(['error' => 'Select an active subject for this grade level.'], 400);
+        }
+        $stmt = statement($db, 'INSERT INTO wat_subjects (name) VALUES (?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)',
+            [$course['subjectCode']]);
+        $subjectId = $stmt->insert_id;
+    }
+
+    $values = [$subjectId, $given, $due, $description, $type ?: null, $topic === '' ? null : $topic,
         $mode ?: null, $remarks === '' ? null : $remarks];
     if ($old) {
+        $catalogUpdate = $catalogSubject && $subjectCode !== null ? ', catalog_subject_id=NULL' : '';
         $values[] = $id;
-        statement($db, 'UPDATE wat_assessments SET subject_id=?, catalog_subject_id=?, date_given=?, deadline=?, description=?,
-            assessment_type=?, topic=?, implementation=?, remarks=? WHERE id=?', $values);
+        statement($db, 'UPDATE wat_assessments SET subject_id=?, date_given=?, deadline=?, description=?,
+            assessment_type=?, topic=?, implementation=?, remarks=?' . $catalogUpdate . ' WHERE id=?', $values);
         return ['ok' => true];
-    }
-    if (!in_array($batch, ASSESSMENT_GRADES, true) &&
-        !rows($db, 'SELECT 1 FROM wat_batch_advisers WHERE batch=? LIMIT 1', [$batch])) {
-        reply(['error' => 'Unknown batch.'], 400);
     }
     $values[] = $batch;
     $values[] = $user['id'];
-    $stmt = statement($db, 'INSERT INTO wat_assessments (subject_id,catalog_subject_id,date_given,deadline,description,
-        assessment_type,topic,implementation,remarks,batch,teacher_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)', $values);
+    $stmt = statement($db, 'INSERT INTO wat_assessments (subject_id,date_given,deadline,description,
+        assessment_type,topic,implementation,remarks,batch,teacher_id) VALUES (?,?,?,?,?,?,?,?,?,?)', $values);
     return ['id' => $stmt->insert_id];
 }
