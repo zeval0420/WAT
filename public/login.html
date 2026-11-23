@@ -1,11 +1,11 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WAT – Teacher login</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="./">Student view</a></header><main>
-<form id="lf" class="card login-card" novalidate>
+<form id="lf" class="card login-card" method="post" action="ajax/ajax_login.php" novalidate>
   <h1>Teacher login</h1>
   <p class="hint">Sign in with your school account.</p>
   <div id="banner" class="banner" role="alert" hidden></div>
-  <div class="field"><label for="u">Username</label>
-    <input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus aria-describedby="u-err">
+  <div class="field"><label for="u">School username or email</label>
+    <input id="u" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus aria-describedby="u-err">
     <div class="ferr" id="u-err"></div></div>
   <div class="field"><label for="p">Password</label>
     <div class="pw"><input id="p" name="password" type="password" autocomplete="current-password" aria-describedby="p-err">
@@ -33,6 +33,8 @@ function show(fields, msg) {
 }
 for (const k in inputs) inputs[k].addEventListener('input', () => { inputs[k].classList.remove('bad'); inputs[k].removeAttribute('aria-invalid'); errs[k].textContent = ''; banner.hidden = true; });
 $('show').onclick = (e) => { const t = $('p').type === 'password'; $('p').type = t ? 'text' : 'password'; e.target.textContent = t ? 'Hide' : 'Show'; e.target.setAttribute('aria-pressed', t); };
+const session = api('me');
+session.then(({ user }) => { if (user) location.replace('teacher.html'); }).catch(err => show({}, err.message));
 form.onsubmit = async (e) => {
   e.preventDefault();
   const username = $('u').value.trim(), password = $('p').value, f = {};
@@ -40,8 +42,27 @@ form.onsubmit = async (e) => {
   if (!password) f.password = 'Password is required';
   if (Object.keys(f).length) return show(f);
   clear(); go.disabled = true; go.textContent = 'Logging in…';
-  try { await api('/api/login', 'POST', { username, password }); go.textContent = 'Success – redirecting…'; location.replace('teacher.html'); }
-  catch (err) { go.disabled = false; go.textContent = 'Log in'; show(err.fields, err.message); }
+  try {
+    await session;
+    const response = await fetch(form.action, {
+      method: 'POST',
+      body: new URLSearchParams({ action: 'loginUser', email: username, password, csrf_token: csrfToken }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Login failed. Please try again.');
+    }
+    const result = (await response.text()).trim();
+    if (['teacher', 'admin', 'requester'].includes(result)) {
+      go.textContent = 'Success – redirecting…';
+      location.replace('teacher.html');
+      return;
+    }
+    if (result === 'invalid_password') show({ password: 'Incorrect password.' });
+    else if (result === 'prompt_create_account') show({ username: 'No active employee account found for this email.' });
+    else show({}, 'Could not check the school account.');
+  } catch (err) { show({}, err.message); }
+  go.disabled = false;
+  go.textContent = 'Log in';
 };
-api('/api/me').then((r) => { if (r.user) location.replace('teacher.html'); }).catch(() => {});
 </script></body></html>

@@ -13,11 +13,11 @@ function showError(error) {
 }
 
 async function boot() {
-  const me = (await api('/api/me')).user;
+  const me = (await api('me')).user;
   if (!me) { location.replace('login.html'); return; }
   $('app').hidden = false;
   $('who').textContent = me.name;
-  const batches = await api('/api/batches');
+  const batches = await api('batches');
   sel.innerHTML = batches.map((b) => `<option>${esc(b)}</option>`).join('');
   const own = me.adviserOf.find((b) => batches.includes(b));
   if (own) sel.value = own;
@@ -25,12 +25,11 @@ async function boot() {
   grid.hidden = !batches.length;
   await loadSubjects();
   await load();
-  const live = onLive((m) => { if (m.batch === sel.value && m.week === start) load(); });
-  live.onopen = load;
+  watchWeek(load);
 }
 
 async function loadSubjects(pick = $('subj').value) {
-  const subjects = await api('/api/subjects');
+  const subjects = await api('subjects');
   $('subj').innerHTML = subjects.map((subject) => `<option value="${subject.id}">${esc(subject.name)}</option>`).join('');
   if (subjects.some((subject) => String(subject.id) === String(pick))) $('subj').value = pick;
 }
@@ -67,7 +66,7 @@ async function load() {
   if (!sel.value) return;
   const version = ++loadVersion;
   try {
-    const w = await api(`/api/teacher/week?batch=${encodeURIComponent(sel.value)}&start=${start}`);
+    const w = await api('teacherWeek', 'GET', null, { batch: sel.value, start });
     if (version !== loadVersion) return;
     items = w.items;
     approved = w.approved;
@@ -130,19 +129,19 @@ sel.onchange = () => changeWeek(start);
 $('implementation').onchange = updateGivenLabel;
 $('cancel').onclick = () => { form.hidden = true; };
 $('out').onclick = async () => {
-  try { await api('/api/logout', 'POST'); location.replace('login.html'); }
+  try { await api('logout', 'POST'); location.replace('login.html'); }
   catch (error) { showError(error); }
 };
 $('addsubj').onclick = async () => {
   try {
-    const subject = await api('/api/subjects', 'POST', { name: $('newsubj').value });
+    const subject = await api('subjects', 'POST', { name: $('newsubj').value });
     $('newsubj').value = '';
     await loadSubjects(subject.id);
   } catch (error) { $('ferr').textContent = error.message; }
 };
 $('approve').onclick = async () => {
   showError();
-  try { await api('/api/teacher/approve', 'POST', { batch: sel.value, start, approved: !approved }); await load(); }
+  try { await api('approve', 'POST', { batch: sel.value, start, approved: !approved }); await load(); }
   catch (error) { showError(error); }
 };
 form.onsubmit = async (event) => {
@@ -158,8 +157,8 @@ form.onsubmit = async (event) => {
     remarks: $('remarks').value,
   };
   try {
-    if (editing) await api(`/api/teacher/assessments/${editing}`, 'PUT', body);
-    else await api('/api/teacher/assessments', 'POST', body);
+    if (editing) await api('assessment', 'PUT', body, { id: editing });
+    else await api('assessment', 'POST', body);
     form.hidden = true;
     await load();
   } catch (error) {
@@ -180,7 +179,7 @@ grid.onclick = async (event) => {
   if (remove && confirm('Delete this assessment?')) {
     showError();
     try {
-      await api(`/api/teacher/assessments/${remove}`, 'DELETE');
+      await api('assessment', 'DELETE', null, { id: remove });
       if (String(editing) === remove) form.hidden = true;
       await load();
     } catch (error) { showError(error); }

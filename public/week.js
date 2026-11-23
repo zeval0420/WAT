@@ -6,22 +6,29 @@ const fmt = (s) => new Date(s + 'T00:00:00').toLocaleDateString(undefined, { wee
 const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
-const pageDirectory = new URL('.', window.location.href);
-const appDirectory = pageDirectory.pathname.endsWith('/public/')
-  ? new URL('..', pageDirectory)
-  : pageDirectory;
-const apiUrl = (path) => new URL(path.replace(/^\//, ''), appDirectory);
-async function api(url, method = 'GET', body) {
-  let r;
-  try { r = await fetch(apiUrl(url), { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body && JSON.stringify(body) }); }
-  catch { throw Object.assign(new Error('Cannot reach the server. Check your connection and try again.'), { status: 0 }); }
-  const j = await r.json().catch(() => null);
-  if (!r.ok) throw Object.assign(new Error((j && j.error) || `Unexpected server response (${r.status}). The server may need a restart.`), { status: r.status, fields: j && j.fields });
-  if (j === null) throw Object.assign(new Error('Unexpected server response. The server may need a restart.'), { status: r.status });
-  return j;
+let csrfToken = '';
+async function api(action, method = 'GET', body, query = {}) {
+  const url = new URL('ajax/wat.php', window.location.href);
+  url.search = new URLSearchParams({ ...query, action });
+  const headers = { Accept: 'application/json' };
+  if (method !== 'GET') headers['X-CSRF-Token'] = csrfToken;
+  if (body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(url, { method, headers, body: body && JSON.stringify(body) });
+  const data = await response.json();
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { status: response.status });
+  if (data.csrf_token) csrfToken = data.csrf_token;
+  return data;
 }
-function onLive(handler) { // reconnecting SSE
-  const es = new EventSource(apiUrl('/api/events'));
-  es.onmessage = (e) => handler(JSON.parse(e.data));
-  return es;
+
+// PHP requests are independent. Refresh open weeks while their tab is visible.
+function watchWeek(refresh) {
+  let pending = false;
+  const update = async () => {
+    if (document.hidden || pending) return;
+    pending = true;
+    try { await refresh(); }
+    finally { pending = false; }
+  };
+  document.addEventListener('visibilitychange', update);
+  window.setInterval(update, 5000);
 }
