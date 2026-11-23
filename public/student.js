@@ -32,4 +32,7 @@ sel.onchange = () => { try { localStorage.setItem('wat_batch', sel.value); } cat
   };
   await refresh();
   watchWeek(refresh);
-})();
+})().catch((error) => {
+  $('empty').hidden = false;
+  $('empty').textContent = error.message;
+});

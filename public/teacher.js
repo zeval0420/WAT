@@ -17,9 +17,9 @@ async function boot() {
   if (!me) { location.replace('login.html'); return; }
   $('app').hidden = false;
   $('who').textContent = me.name;
-  const batches = await api('batches');
+  const { batches, adviserOf } = await api('teacherBatches');
   sel.innerHTML = batches.map((b) => `<option>${esc(b)}</option>`).join('');
-  const own = me.adviserOf.find((b) => batches.includes(b));
+  const own = adviserOf[0];
   if (own) sel.value = own;
   $('empty').hidden = batches.length > 0;
   grid.hidden = !batches.length;

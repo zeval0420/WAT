@@ -7,7 +7,7 @@ $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 $routes = [
     'me' => ['GET'], 'logout' => ['POST'], 'batches' => ['GET'], 'week' => ['GET'],
-    'subjects' => ['GET', 'POST'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
+    'subjects' => ['GET', 'POST'], 'teacherBatches' => ['GET'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
     'assessment' => ['POST', 'PUT', 'DELETE'],
 ];
 if (!is_string($action) || !isset($routes[$action])) {
@@ -38,6 +38,9 @@ try {
         $user = ['id' => $_SESSION['employeeID'], 'name' => $_SESSION['username'],
             'isAdmin' => $_SESSION['employeeID'] === 'admin.controller'];
         session_write_close();
+        if ($action === 'me') {
+            reply(['user' => $user, 'csrf_token' => $csrf]);
+        }
     }
 
     $db = watDatabase();
@@ -47,9 +50,13 @@ try {
     if ($action === 'week') {
         reply(weekData($db, null, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
     }
-    $user['adviserOf'] = array_column(rows($db, 'SELECT batch FROM wat_batch_advisers WHERE employeeID=?', [$user['id']]), 'batch');
-    if ($action === 'me') {
-        reply(['user' => $user, 'csrf_token' => $csrf]);
+    if ($action === 'teacherBatches') {
+        $batches = rows($db, 'SELECT batch, MAX(employeeID=?) AS advises FROM wat_batch_advisers GROUP BY batch ORDER BY batch', [$user['id']]);
+        reply(['batches' => array_column($batches, 'batch'),
+            'adviserOf' => array_column(array_filter($batches, static function ($row) { return $row['advises']; }), 'batch')]);
+    }
+    if (in_array($action, ['teacherWeek', 'assessment', 'approve'], true)) {
+        $user['adviserOf'] = array_column(rows($db, 'SELECT batch FROM wat_batch_advisers WHERE employeeID=?', [$user['id']]), 'batch');
     }
     if ($action === 'teacherWeek') {
         reply(weekData($db, $user, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
@@ -94,6 +101,15 @@ try {
             reply(saveAssessment($db, $user, $method, $input, $_GET['id'] ?? null));
     }
 } catch (Throwable $error) {
-    error_log('WAT ' . $action . ' failed: ' . $error->getCode());
+    error_log(sprintf('WAT %s failed: %s (%s) at %s:%d', $action, get_class($error),
+        $error->getCode(), basename($error->getFile()), $error->getLine()));
+    if ($error instanceof mysqli_sql_exception) {
+        if (in_array($error->getCode(), [1146, 1054], true)) {
+            reply(['error' => 'The WAT database schema is incomplete. Apply the WAT database migrations.'], 503);
+        }
+        if (in_array($error->getCode(), [1044, 1045, 1142, 1143], true)) {
+            reply(['error' => 'The database denied WAT access to the requested data.'], 503);
+        }
+    }
     reply(['error' => 'Could not complete the request.'], 500);
 }
