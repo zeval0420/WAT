@@ -7,7 +7,7 @@ $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 $routes = [
     'me' => ['GET'], 'logout' => ['POST'], 'batches' => ['GET'], 'week' => ['GET'],
-    'subjects' => ['GET', 'POST'], 'teacherBatches' => ['GET'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
+    'subjects' => ['GET'], 'teacherBatches' => ['GET'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
     'assessment' => ['POST', 'PUT', 'DELETE'],
 ];
 if (!is_string($action) || !isset($routes[$action])) {
@@ -61,8 +61,9 @@ try {
     if ($action === 'teacherWeek') {
         reply(weekData($db, $user, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
     }
-    if ($method === 'GET') {
-        reply(rows($db, 'SELECT id, name FROM wat_subjects ORDER BY name'));
+    if ($action === 'subjects') {
+        reply(rows($db, "SELECT id, subjectCode AS name, subjectDescription AS description, subjectGradeLevel AS grade
+            FROM subject WHERE status='active' ORDER BY subjectCode, subjectDescription, id"));
     }
     $input = [];
     if ($method !== 'DELETE') {
@@ -72,14 +73,6 @@ try {
         }
     }
     switch ($action) {
-        case 'subjects':
-            preg_match('/^.{0,100}/su', trim($input['name'] ?? ''), $match);
-            $name = $match[0] ?? '';
-            if ($name === '') {
-                reply(['error' => 'Name required.'], 400);
-            }
-            statement($db, 'INSERT IGNORE INTO wat_subjects (name) VALUES (?)', [$name]);
-            reply(rows($db, 'SELECT id, name FROM wat_subjects WHERE name=?', [$name])[0]);
         case 'approve':
             $batch = $input['batch'] ?? '';
             $date = $input['start'] ?? '';

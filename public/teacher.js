@@ -3,6 +3,7 @@ let items = [], editing = null, approved = false, loadVersion = 0, saving = fals
 const sel = $('batch');
 const grid = document.querySelector('.assessment-grid');
 const form = $('form');
+let subjectCatalog = [];
 const types = { formative: 'Formative Assessment', summative: 'Summative Assessment', alternative: 'Alternative Assessment' };
 const modes = { sync: 'Synchronous (in class)', async: 'Asynchronous' };
 const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
@@ -23,15 +24,27 @@ async function boot() {
   if (own) sel.value = own;
   $('empty').hidden = batches.length > 0;
   grid.hidden = !batches.length;
-  await loadSubjects();
+  subjectCatalog = await api('subjects');
   await load();
   watchWeek(load);
 }
 
-async function loadSubjects(pick = $('subj').value) {
-  const subjects = await api('subjects');
-  $('subj').innerHTML = subjects.map((subject) => `<option value="${subject.id}">${esc(subject.name)}</option>`).join('');
-  if (subjects.some((subject) => String(subject.id) === String(pick))) $('subj').value = pick;
+function setSubjectOptions(item) {
+  const select = $('subj');
+  const grade = /^Grade (7|8|9|10|11|12)$/.exec(sel.value);
+  const courses = subjectCatalog.filter(course => !grade || String(course.grade) === grade[1]);
+  select.replaceChildren(new Option(courses.length ? 'Select subject' : 'No active subjects available', ''));
+  for (const course of courses) {
+    const label = course.description ? course.name + ' — ' + course.description : course.name;
+    select.add(new Option(label, course.id));
+  }
+  if (item) {
+    const current = item.catalog_subject_id === null ? 'legacy' : String(item.catalog_subject_id);
+    if (!Array.from(select.options).some(option => option.value === current)) {
+      select.add(new Option(item.subject, current));
+    }
+    select.value = current;
+  }
 }
 
 function tag(value, labels) {
@@ -92,7 +105,7 @@ function updateGivenLabel() {
 function openEditor(day, item) {
   editing = item?.id ?? null;
   form.reset();
-  if (item) $('subj').value = item.subject_id;
+  setSubjectOptions(item);
   const today = iso(new Date());
   $('given').value = item?.date_given || (today > day ? day : today);
   $('due').value = day;
@@ -132,13 +145,6 @@ $('out').onclick = async () => {
   try { await api('logout', 'POST'); location.replace('login.html'); }
   catch (error) { showError(error); }
 };
-$('addsubj').onclick = async () => {
-  try {
-    const subject = await api('subjects', 'POST', { name: $('newsubj').value });
-    $('newsubj').value = '';
-    await loadSubjects(subject.id);
-  } catch (error) { $('ferr').textContent = error.message; }
-};
 $('approve').onclick = async () => {
   showError();
   try { await api('approve', 'POST', { batch: sel.value, start, approved: !approved }); await load(); }
@@ -150,12 +156,13 @@ form.onsubmit = async (event) => {
   saving = $('save').disabled = true;
   $('ferr').textContent = '';
   const body = {
-    batch: sel.value, subject_id: $('subj').value,
+    batch: sel.value,
     date_given: $('given').value, deadline: $('due').value,
     assessment_type: $('assessment-type').value, topic: $('topic').value,
     description: $('desc').value, implementation: $('implementation').value,
     remarks: $('remarks').value,
   };
+  if ($('subj').value !== 'legacy') body.catalog_subject_id = $('subj').value;
   try {
     if (editing) await api('assessment', 'PUT', body, { id: editing });
     else await api('assessment', 'POST', body);
