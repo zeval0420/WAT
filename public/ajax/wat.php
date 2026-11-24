@@ -36,7 +36,7 @@ try {
             reply(['error' => 'Login required.'], 401);
         }
         $user = ['id' => $_SESSION['employeeID'], 'name' => $_SESSION['username'],
-            'isAdmin' => $_SESSION['employeeID'] === 'admin.controller'];
+            'isAdmin' => ($_SESSION['isBuiltInAdmin'] ?? false) || $_SESSION['employeeID'] === 'admin.controller'];
         session_write_close();
         if ($action === 'me') {
             reply(['user' => $user, 'csrf_token' => $csrf]);
@@ -63,7 +63,7 @@ try {
         reply(['batches' => assessmentGroups($db, $batches),
             'adviserOf' => array_column(array_filter($batches, static function ($row) { return $row['advises']; }), 'batch')]);
     }
-    if (in_array($action, ['teacherWeek', 'assessment', 'approve'], true)) {
+    if (in_array($action, ['teacherWeek', 'assessment', 'approve'], true) && !$user['isAdmin']) {
         $user['adviserOf'] = array_column(rows($db, 'SELECT batch FROM wat_batch_advisers WHERE employeeID=?', [$user['id']]), 'batch');
     }
     if ($action === 'teacherWeek') {

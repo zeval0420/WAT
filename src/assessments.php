@@ -72,17 +72,18 @@ function weekData($db, $user, $batch, $date)
     }
 
     // accounts and the WAT tables use different collations. Look names up separately.
-    $ids = array_values(array_unique(array_column($items, 'teacher_id')));
+    $names = [WAT_BUILT_IN_ADMIN => WAT_BUILT_IN_ADMIN];
+    $ids = array_diff(array_unique(array_column($items, 'teacher_id')), array_keys($names));
     if ($ids) {
         $slots = implode(',', array_fill(0, count($ids), '?'));
-        $names = array_column(rows($db, "SELECT employeeID, CONCAT(firstname, ' ', lastname) AS name
+        $names += array_column(rows($db, "SELECT employeeID, CONCAT(firstname, ' ', lastname) AS name
             FROM accounts WHERE employeeID IN ($slots)", $ids), 'name', 'employeeID');
-        foreach ($items as &$item) {
-            $id = $item['teacher_id'];
-            $item['teacher'] = $names[$id] ?? ($id === 'admin.controller' ? $id : '');
-        }
-        unset($item);
     }
+    foreach ($items as &$item) {
+        $id = $item['teacher_id'];
+        $item['teacher'] = $names[$id] ?? ($id === 'admin.controller' ? $id : '');
+    }
+    unset($item);
     return compact('start', 'end', 'approved', 'items', 'isAdviser');
 }
 

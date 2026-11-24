@@ -23,16 +23,24 @@ if ($attempts['until'] > $now) {
 }
 
 $identity = trim($identity);
-$email = strpos($identity, '@') === false ? $identity . '@irc.pshs.edu.ph' : $identity;
-try {
-    $db = watDatabase();
-    $account = rows($db, "SELECT employeeID, email, firstname, middlename, lastname, position, password
-        FROM accounts WHERE email = ? AND status = 'active' LIMIT 1", [$email])[0] ?? null;
-} catch (Throwable $error) {
-    error_log('WAT employee login failed: ' . $error->getCode());
-    reply(['error' => 'Could not check the school account.'], 500);
+$isBuiltInAdmin = $identity === WAT_BUILT_IN_ADMIN;
+$account = null;
+if ($isBuiltInAdmin) {
+    $validPassword = strpos($password, "\0") === false
+        && password_verify($password, '$2y$12$tiwZxLeols3TMK//qrIrC.XXNdwstNHdsPsSNsmF/RXicRyDPVqWC');
+} else {
+    $email = strpos($identity, '@') === false ? $identity . '@irc.pshs.edu.ph' : $identity;
+    try {
+        $db = watDatabase();
+        $account = rows($db, "SELECT employeeID, email, firstname, middlename, lastname, position, password
+            FROM accounts WHERE email = ? AND status = 'active' LIMIT 1", [$email])[0] ?? null;
+    } catch (Throwable $error) {
+        error_log('WAT employee login failed: ' . $error->getCode());
+        reply(['error' => 'Could not check the school account.'], 500);
+    }
+    $validPassword = $account && hash_equals((string) $account['password'], md5($password));
 }
-if (!$account || !hash_equals((string) $account['password'], md5($password))) {
+if (!$validPassword) {
     if ($now - $attempts['first'] > 900) {
         $attempts = ['count' => 0, 'first' => $now, 'until' => 0];
     }
@@ -41,23 +49,29 @@ if (!$account || !hash_equals((string) $account['password'], md5($password))) {
         $attempts['until'] = $now + min(900, 30 * (2 ** min(5, $attempts['count'] - 5)));
     }
     $_SESSION['login_attempts'] = $attempts;
-    echo $account ? 'invalid_password' : 'prompt_create_account';
+    echo ($isBuiltInAdmin || $account) ? 'invalid_password' : 'prompt_create_account';
     exit;
 }
 
-$role = 'requester';
-if ($account['position'] === 'Teacher') {
-    $role = 'teacher';
-} elseif (in_array($account['position'], ['Sci. Res. Assist.', 'Sci. Research Specialist I'], true)) {
+if ($isBuiltInAdmin) {
     $role = 'admin';
+    $name = WAT_BUILT_IN_ADMIN;
+} else {
+    $role = 'requester';
+    if ($account['position'] === 'Teacher') {
+        $role = 'teacher';
+    } elseif (in_array($account['position'], ['Sci. Res. Assist.', 'Sci. Research Specialist I'], true)) {
+        $role = 'admin';
+    }
+    $middle = trim($account['middlename'] ?? '');
+    preg_match('/^./u', $middle, $initial);
+    $name = trim($account['firstname'] . ' ' . (isset($initial[0]) ? $initial[0] . '. ' : '') . $account['lastname']);
 }
-$middle = trim($account['middlename'] ?? '');
-preg_match('/^./u', $middle, $initial);
-$name = trim($account['firstname'] . ' ' . (isset($initial[0]) ? $initial[0] . '. ' : '') . $account['lastname']);
 session_regenerate_id(true);
 unset($_SESSION['login_attempts']);
-$_SESSION['employeeID'] = $account['employeeID'];
-$_SESSION['email'] = $account['email'];
+$_SESSION['employeeID'] = $isBuiltInAdmin ? WAT_BUILT_IN_ADMIN : $account['employeeID'];
+$_SESSION['email'] = $account['email'] ?? null;
 $_SESSION['username'] = $name;
 $_SESSION['role'] = $role;
+$_SESSION['isBuiltInAdmin'] = $isBuiltInAdmin;
 echo $role;

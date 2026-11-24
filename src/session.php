@@ -1,4 +1,6 @@
 <?php
+const WAT_BUILT_IN_ADMIN = 'batch_adviser';
+
 // Keep WAT's session separate from other PHP applications on the same host.
 function startWatSession()
 {
