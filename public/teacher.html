@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <title>WAT – Teacher</title>
-  <link rel="stylesheet" href="style.css?v=959c8776">
+  <link rel="stylesheet" href="style.css?v=ad1a58ce">
 </head>
 <body>
   <header class="header">
@@ -55,7 +55,7 @@
           <div id="weekend-cards" class="weekend-cards"></div>
         </section>
       </section>
-      <dialog id="color-dialog" class="card teacher-dialog" aria-labelledby="color-title">
+      <dialog id="color-dialog" class="card app-dialog teacher-dialog" aria-labelledby="color-title">
         <form id="color-form" class="form">
           <h2 id="color-title" class="wide">Assessment colors</h2>
           <p class="wide color-help">Colors apply to the teacher and student calendars for all grade levels.</p>
@@ -64,7 +64,7 @@
           <div id="color-error" class="wide err" role="alert"></div>
         </form>
       </dialog>
-      <dialog id="editor" class="card teacher-dialog" aria-labelledby="editor-title">
+      <dialog id="editor" class="card app-dialog teacher-dialog" aria-labelledby="editor-title">
         <form id="form" class="form">
           <h2 id="editor-title" class="wide">Add assessment</h2>
           <label>Subject<select id="subj" required autofocus></select></label>
@@ -79,7 +79,7 @@
           <div class="wide err" id="ferr" role="alert"></div>
         </form>
       </dialog>
-      <dialog id="move-dialog" class="card teacher-dialog" aria-labelledby="move-title">
+      <dialog id="move-dialog" class="card app-dialog teacher-dialog" aria-labelledby="move-title">
         <form id="move-form" class="form">
           <h2 id="move-title" class="wide">Move assessment</h2>
           <label class="wide">New deadline<input id="move-date" type="date" aria-describedby="move-date-error" required autofocus><span id="move-date-error" class="err" aria-live="polite"></span></label>
@@ -87,10 +87,18 @@
           <div class="wide err" id="move-error" role="alert"></div>
         </form>
       </dialog>
+      <dialog id="delete-dialog" class="card app-dialog teacher-dialog" aria-labelledby="delete-title" aria-describedby="delete-detail">
+        <form id="delete-form" class="form">
+          <h2 id="delete-title" class="wide">Delete assessment?</h2>
+          <p id="delete-detail" class="wide"></p>
+          <div class="wide teacher-actions"><button type="button" id="delete-cancel" autofocus>Cancel</button><button class="danger" id="delete-confirm">Delete assessment</button></div>
+          <div class="wide err" id="delete-error" role="alert"></div>
+        </form>
+      </dialog>
     </section>
   </main>
   <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
-  <script src="week.js?v=3e6270ab"></script>
-  <script src="teacher.js?v=e6854991"></script>
+  <script src="week.js?v=461cc74a"></script>
+  <script src="teacher.js?v=040c6aa5"></script>
 </body>
 </html>

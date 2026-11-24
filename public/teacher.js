@@ -1,6 +1,6 @@
 let start = currentWeekStart();
 let items = [], approved = false, loadVersion = 0, saving = false;
-let editing = null, editorVersion = 0, moving = null;
+let editing = null, editorVersion = 0, editorDirty = false, moving = null, deleting = null;
 let dragged = null, dropDay = null, rendered = '';
 const sel = $('batch');
 const board = $('teacher-board');
@@ -10,10 +10,13 @@ const form = $('form');
 const moveDialog = $('move-dialog');
 const colorDialog = $('color-dialog');
 const colorForm = $('color-form');
+const deleteDialog = $('delete-dialog');
 let openedColors = {};
 let colorDialogVersion = 0;
 const modes = { sync: 'Synchronous', async: 'Asynchronous' };
 const isWeekend = (date) => [0, 6].includes(new Date(date + 'T00:00:00').getDay());
+const editIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m14 6 4 4M4 20l4.5-1 11-11a2.8 2.8 0 0 0-4-4l-11 11L4 20Z"/></svg>';
+const deleteIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5"/></svg>';
 
 function message(id, text = '') {
   const element = $(id);
@@ -38,9 +41,9 @@ function assessmentCard(item, legacy = false) {
     <small>${item.implementation === 'async' ? 'Started' : 'Given'} ${fmt(item.date_given)}${legacy ? ` · Due ${fmt(item.deadline)}` : ''}</small>
     ${item.teacher ? `<small class="teacher-byline">${esc(item.teacher)}</small>` : ''}
     <div class="teacher-actions">
-      <button type="button" data-action="edit" aria-label="Edit ${subject}">Edit</button>
+      <button type="button" class="teacher-icon-button" data-action="edit" aria-label="Edit ${subject}" title="Edit">${editIcon}</button>
       <button type="button" data-action="move" aria-label="Move ${subject}">Move</button>
-      <button type="button" class="danger" data-action="delete" aria-label="Delete ${subject}">Delete</button>
+      <button type="button" class="danger teacher-icon-button" data-action="delete" aria-label="Delete ${subject}" title="Delete">${deleteIcon}</button>
     </div>
   </article>`;
 }
@@ -172,6 +175,7 @@ function validateEditorDates() {
 
 function openEditor(day, item = null) {
   editing = item;
+  editorDirty = false;
   form.reset();
   const today = currentSchoolDate();
   const weekday = isWeekend(today) ? addDays(mondayOf(today), 4) : today;
@@ -249,22 +253,33 @@ function handleCardClick(event) {
   if (!item) return;
   if (button.dataset.action === 'edit') openEditor(item.deadline, item);
   if (button.dataset.action === 'move') openMove(item);
-  if (button.dataset.action === 'delete') deleteAssessment(item);
+  if (button.dataset.action === 'delete') {
+    deleting = item;
+    $('delete-detail').textContent = `${item.subject} · Due ${fmt(item.deadline)}`;
+    $('delete-error').textContent = '';
+    deleteDialog.showModal();
+  }
 }
 
 async function deleteAssessment(item) {
-  if (!confirm('Delete this assessment?')) return;
   message('calendar-error');
   message('notice');
   setSaving(true);
+  $('delete-confirm').disabled = $('delete-cancel').disabled = true;
   try {
     await api('assessment', 'DELETE', null, { id: item.id, batch: sel.value });
+    deleteDialog.close();
     message('notice', 'Assessment deleted.');
     await load();
   } catch (error) {
-    message('calendar-error', error.message);
+    $('delete-error').textContent = error.message;
   } finally {
     setSaving(false);
+    $('delete-confirm').disabled = $('delete-cancel').disabled = false;
+    if (!deleteDialog.open && document.activeElement === document.body) {
+      const fallback = board.querySelector(`[data-add="${CSS.escape(item.deadline)}"]`) || $('add-assessment');
+      fallback.focus();
+    }
   }
 }
 
@@ -330,12 +345,22 @@ $('implementation').onchange = () => {
 };
 for (const id of ['given', 'due']) $(id).oninput = validateEditorDates;
 $('move-date').oninput = () => dateError('move-date', deadlineError($('move-date').value, moving.date_given));
-$('cancel').onclick = () => editor.close();
+$('cancel').onclick = () => dismissDialog(editor);
 $('move-cancel').onclick = () => moveDialog.close();
+$('delete-cancel').onclick = () => deleteDialog.close();
+$('delete-form').onsubmit = (event) => {
+  event.preventDefault();
+  if (!saving) deleteAssessment(deleting);
+};
+form.addEventListener('input', () => { editorDirty = true; });
 editor.onclose = () => { editorVersion++; };
-for (const dialog of [editor, moveDialog]) {
+editor.oncancel = (event) => {
+  if (saving || (editorDirty && !window.confirm('Discard unsaved assessment changes?'))) event.preventDefault();
+};
+for (const dialog of [moveDialog, deleteDialog]) {
   dialog.oncancel = (event) => { if (saving) event.preventDefault(); };
 }
+for (const dialog of [editor, moveDialog, deleteDialog, colorDialog]) dismissOnBackdrop(dialog);
 $('out').onclick = async () => {
   try { await api('logout', 'POST'); location.replace('login.html'); }
   catch (error) { message('calendar-error', error.message); }

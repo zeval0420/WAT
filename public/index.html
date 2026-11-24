@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <title>WAT – Assessment Calendar</title>
-  <link rel="stylesheet" href="style.css?v=959c8776">
+  <link rel="stylesheet" href="style.css?v=ad1a58ce">
 </head>
 <body>
   <header class="header">
@@ -15,36 +15,49 @@
     <a class="nav-link" href="login.html">Teacher login</a>
   </header>
   <main class="student-main">
-    <div class="calendar-heading">
-      <h1>Assessment calendar</h1>
-      <div class="calendar-grade">
-        <label for="batch">Grade level</label>
-        <select id="batch" disabled><option>Loading grade levels…</option></select>
-      </div>
-    </div>
-    <section class="card student-calendar" aria-labelledby="period">
-      <div class="calendar-toolbar">
-        <div class="calendar-nav" role="group" aria-label="Calendar navigation">
-          <button id="prev" type="button" aria-label="Previous week">‹</button>
-          <button id="next" type="button" aria-label="Next week">›</button>
-          <button id="cur" type="button">Today</button>
-        </div>
-        <h2 id="period" aria-live="polite"></h2>
-        <div class="calendar-modes" role="group" aria-label="Calendar view">
-          <button id="week-view" type="button" aria-pressed="true">Week</button>
-          <button id="month-view" type="button" aria-pressed="false">Month</button>
-        </div>
-      </div>
-      <div id="calendar" class="calendar-grid"></div>
-      <p id="calendar-status" class="calendar-status" role="status" hidden></p>
-      <section id="day-details" class="calendar-details" aria-labelledby="selected-date" hidden>
-        <h3 id="selected-date"></h3>
-        <div id="selected-assessments"></div>
-      </section>
+    <section id="grade-start" class="card grade-start" aria-labelledby="grade-title">
+      <h1 id="grade-title">Choose your grade level</h1>
+      <p id="grade-status" role="status">Loading grade levels…</p>
+      <div id="grade-choices"></div>
+      <button id="retry-grades" type="button" hidden>Try again</button>
     </section>
+    <div id="student-calendar-view" hidden>
+      <div class="calendar-heading">
+        <h1 id="calendar-title" tabindex="-1">Assessment calendar</h1>
+        <div class="calendar-grade">
+          <span id="active-grade"></span>
+          <button id="change-grade" type="button" aria-haspopup="dialog">Change grade</button>
+        </div>
+      </div>
+      <section class="card student-calendar" aria-labelledby="period">
+        <div class="calendar-toolbar">
+          <div class="calendar-nav" role="group" aria-label="Calendar navigation">
+            <button id="prev" type="button" aria-label="Previous week">‹</button>
+            <button id="next" type="button" aria-label="Next week">›</button>
+            <button id="cur" type="button">Today</button>
+          </div>
+          <h2 id="period" aria-live="polite"></h2>
+          <div class="calendar-modes" role="group" aria-label="Calendar view">
+            <button id="week-view" type="button" aria-pressed="true">Week</button>
+            <button id="month-view" type="button" aria-pressed="false">Month</button>
+          </div>
+        </div>
+        <div id="calendar" class="calendar-grid"></div>
+        <p id="calendar-status" class="calendar-status" role="status" hidden></p>
+        <section id="day-details" class="calendar-details" aria-labelledby="selected-date" hidden>
+          <h3 id="selected-date"></h3>
+          <div id="selected-assessments"></div>
+        </section>
+      </section>
+    </div>
+    <dialog id="grade-dialog" class="card app-dialog grade-dialog" aria-labelledby="change-grade-title">
+      <h2 id="change-grade-title">Choose your grade level</h2>
+      <div id="dialog-grade-choices"></div>
+      <button id="cancel-grade" type="button">Cancel</button>
+    </dialog>
   </main>
   <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
-  <script src="week.js?v=3e6270ab"></script>
-  <script src="student.js?v=bf54fa8b"></script>
+  <script src="week.js?v=461cc74a"></script>
+  <script src="student.js?v=855e3012"></script>
 </body>
 </html>

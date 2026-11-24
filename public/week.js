@@ -16,6 +16,25 @@ const fmt = (s) => new Date(s + 'T00:00:00').toLocaleDateString(undefined, { wee
 const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
+function dismissDialog(dialog) {
+  if (dialog.open && dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) {
+    dialog.close();
+  }
+}
+function dismissOnBackdrop(dialog) {
+  let startedOutside = false;
+  function outside(event) {
+    const { top, right, bottom, left } = dialog.getBoundingClientRect();
+    return event.target === dialog && (
+      event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom
+    );
+  }
+  dialog.addEventListener('pointerdown', (event) => { startedOutside = outside(event); });
+  dialog.addEventListener('click', (event) => {
+    if (startedOutside && outside(event)) dismissDialog(dialog);
+    startedOutside = false;
+  });
+}
 const assessmentTypes = {
   formative: 'Formative Assessment',
   summative: 'Summative Assessment',

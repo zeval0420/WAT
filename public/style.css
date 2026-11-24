@@ -123,6 +123,26 @@ input.bad{border-color:var(--color-danger);box-shadow:0 0 0 3px rgba(220,53,69,.
 }
 .calendar-heading h1 { margin: 0; }
 .calendar-grade label { font-weight: 600; }
+#active-grade { font-weight: 700; overflow-wrap: anywhere; }
+#change-grade { flex-shrink: 0; min-height: 38px; }
+.grade-start { max-width: 720px; margin: clamp(16px, 5vw, 60px) auto 0; padding: clamp(16px, 4vw, 36px); }
+.grade-start h1, .grade-dialog h2 { margin: 0 0 var(--space-md); }
+.grade-dialog { width: min(560px, calc(100% - 24px)); padding: var(--space-lg); }
+.grade-dialog h2 { font-size: 1.2rem; }
+.grade-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); }
+.grade-options button {
+  min-height: 64px;
+  padding: 8px;
+  border-radius: var(--radius-input);
+  background: var(--color-input-bg);
+  box-shadow: none;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.grade-options button[aria-current="true"] { background: var(--color-primary-mid); color: #fff; }
+.grade-options small { display: block; color: var(--color-text-secondary); font-size: .72rem; }
+.grade-group-title { margin: var(--space-md) 0 var(--space-sm); color: var(--color-text-secondary); font-weight: 600; }
+#cancel-grade { margin-top: var(--space-md); }
 .calendar-toolbar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -274,19 +294,38 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
 .teacher-byline { display: block; }
 .teacher-assessment .teacher-actions { gap: 4px; margin-top: 6px; }
 .teacher-assessment button { padding: 4px 8px; min-height: 30px; font-size: 12px; }
+.teacher-assessment .teacher-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+.teacher-icon-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .weekend-assessments { padding: var(--space-md); border-top: 1px solid var(--color-border); }
 .weekend-assessments h3 { margin: 0; font-size: 1rem; }
 .weekend-assessments > p { margin: 4px 0 10px; color: var(--color-text-secondary); }
 .weekend-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 8px; }
 .weekend-cards .calendar-assessment { margin: 0; }
-.teacher-dialog { width: min(650px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; }
-.teacher-dialog::backdrop { background: rgba(11, 27, 98, .35); }
+.app-dialog { max-height: calc(100dvh - 24px); }
+.app-dialog::backdrop { background: rgba(11, 27, 98, .35); }
+.teacher-dialog { width: min(650px, calc(100% - 24px)); padding: 0; }
 .teacher-dialog .form { margin: 0; padding: var(--space-lg); }
 .teacher-dialog h2 { margin: 0; font-size: 1.15rem; }
 .teacher-dialog :is(input, select, textarea) { min-width: 0; }
 .teacher-dialog .err:empty { display: none; }
 #move-dialog { max-width: 360px; }
 #color-dialog { max-width: 440px; }
+#delete-dialog { max-width: 400px; }
+#delete-detail { margin: 0; overflow-wrap: anywhere; }
 .color-help { margin: 0; color: var(--color-text-secondary); }
 #color-fields label {
   flex-direction: row;
@@ -303,6 +342,9 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
 }
 
 @media (max-width: 640px) {
+  .grade-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grade-dialog { padding: var(--space-md); }
   .teacher-approval { grid-column: 1 / -1; justify-self: start; }
   .teacher-dialog .form { padding: var(--space-md); }
+  .teacher-assessment .teacher-icon-button { width: 44px; min-height: 44px; }
 }

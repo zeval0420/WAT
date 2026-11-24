@@ -3,7 +3,9 @@ let view = 'week';
 let loadVersion = 0;
 let weeks = new Map();
 let loadedSignature = '';
-const gradeSelect = $('batch');
+let selectedGrade = '';
+let availableGrades = [];
+const gradeDialog = $('grade-dialog');
 const calendar = $('calendar');
 const status = $('calendar-status');
 const details = $('day-details');
@@ -106,7 +108,7 @@ function renderCalendar(period, today) {
 async function load({ reset = false } = {}) {
   const period = calendarPeriod();
   const today = currentSchoolDate();
-  const group = gradeSelect.disabled ? '' : gradeSelect.value;
+  const group = selectedGrade;
   const version = ++loadVersion;
   if (reset) {
     weeks = new Map();
@@ -182,27 +184,68 @@ $('cur').onclick = () => {
 };
 $('week-view').onclick = () => changeView('week');
 $('month-view').onclick = () => changeView('month');
-gradeSelect.onchange = () => {
-  try { localStorage.setItem('wat_batch', gradeSelect.value); } catch {}
-  load({ reset: true });
-};
 
-(async () => {
-  load({ reset: true });
-  const batches = await api('batches');
-  if (!batches.length) {
-    gradeSelect.replaceChildren(new Option('No grade levels available'));
-    showMessage('No grade levels are available.');
-    return;
+function renderGradeChoices(container, recentGrade = '') {
+  const standard = /^Grade (?:[7-9]|1[0-2])$/;
+  const grades = availableGrades.filter((name) => standard.test(name));
+  const other = availableGrades.filter((name) => !standard.test(name));
+  function buttons(names) {
+    return `<div class="grade-options">${names.map((name) => `
+      <button type="button" data-grade="${esc(name)}"${name === selectedGrade ? ' aria-current="true"' : ''}>
+        ${esc(name)}${name === recentGrade ? '<small>Last used</small>' : ''}
+      </button>`).join('')}</div>`;
   }
-  setGradeOptions(gradeSelect, batches);
-  let saved;
-  try { saved = localStorage.getItem('wat_batch'); } catch {}
-  if (batches.includes(saved)) gradeSelect.value = saved;
-  gradeSelect.disabled = false;
-  await load({ reset: true });
-  watchWeek(load);
-})().catch((error) => {
-  gradeSelect.replaceChildren(new Option('Grade levels unavailable'));
-  showMessage(error.message);
-});
+  container.innerHTML = (grades.length ? buttons(grades) : '')
+    + (other.length ? '<p class="grade-group-title">Existing batches</p>' + buttons(other) : '');
+}
+
+function chooseGrade(grade) {
+  const firstChoice = !selectedGrade;
+  if (gradeDialog.open) gradeDialog.close();
+  if (selectedGrade === grade) return;
+  selectedGrade = grade;
+  try { localStorage.setItem('wat_batch', grade); } catch {}
+  $('active-grade').textContent = grade;
+  $('grade-start').hidden = true;
+  $('student-calendar-view').hidden = false;
+  load({ reset: true });
+  if (firstChoice) $('calendar-title').focus();
+}
+
+for (const container of [$('grade-choices'), $('dialog-grade-choices')]) {
+  container.addEventListener('click', (event) => {
+    const grade = event.target.closest('[data-grade]')?.dataset.grade;
+    if (availableGrades.includes(grade)) chooseGrade(grade);
+  });
+}
+$('change-grade').onclick = () => {
+  renderGradeChoices($('dialog-grade-choices'));
+  gradeDialog.showModal();
+  gradeDialog.querySelector('[aria-current="true"]')?.focus();
+};
+$('cancel-grade').onclick = () => gradeDialog.close();
+dismissOnBackdrop(gradeDialog);
+
+async function loadGrades() {
+  const status = $('grade-status');
+  $('retry-grades').hidden = true;
+  status.hidden = false;
+  status.textContent = 'Loading grade levels…';
+  try {
+    availableGrades = await api('batches');
+    if (!availableGrades.length) {
+      status.textContent = 'No grade levels are available.';
+      return;
+    }
+    let recentGrade;
+    try { recentGrade = localStorage.getItem('wat_batch'); } catch {}
+    renderGradeChoices($('grade-choices'), recentGrade);
+    status.hidden = true;
+  } catch (error) {
+    status.textContent = error.message;
+    $('retry-grades').hidden = false;
+  }
+}
+$('retry-grades').onclick = loadGrades;
+loadGrades();
+watchWeek(() => { if (selectedGrade) return load(); });
