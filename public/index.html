@@ -1,12 +1,50 @@
-<!--test-->
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="only light">
-<title>WAT – Weekly Assessments</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="login.html">Teacher login</a></header><main>
-<h1>Weekly Assessments</h1>
-<div class="bar">
-  <label for="batch">Grade level</label><select id="batch" disabled><option>Loading grade levels…</option></select>
-  <button id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button id="next" aria-label="Next week">›</button>
-  <button id="cur">This week</button><span class="sp"></span>
-  <span class="live" id="live"></span>
-</div>
-<div class="card"><table><thead><tr><th>Subject</th><th>Date given</th><th>Deadline</th><th>Assessment</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" role="status" hidden></div></div>
-</main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer><script src="week.js?v=a53fc5ae"></script><script src="student.js?v=a043b3a3"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>WAT – Assessment Calendar</title>
+  <link rel="stylesheet" href="style.css?v=e25a67fd">
+</head>
+<body>
+  <header class="header">
+    <img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60">
+    <div class="school">Philippine Science High School<br>Ilocos Region Campus</div>
+    <div class="system-name">WAT</div>
+    <a class="nav-link" href="login.html">Teacher login</a>
+  </header>
+  <main class="student-main">
+    <div class="calendar-heading">
+      <h1>Assessment calendar</h1>
+      <div class="calendar-grade">
+        <label for="batch">Grade level</label>
+        <select id="batch" disabled><option>Loading grade levels…</option></select>
+      </div>
+    </div>
+    <section class="card student-calendar" aria-labelledby="period">
+      <div class="calendar-toolbar">
+        <div class="calendar-nav" role="group" aria-label="Calendar navigation">
+          <button id="prev" type="button" aria-label="Previous week">‹</button>
+          <button id="next" type="button" aria-label="Next week">›</button>
+          <button id="cur" type="button">Today</button>
+        </div>
+        <h2 id="period" aria-live="polite"></h2>
+        <div class="calendar-modes" role="group" aria-label="Calendar view">
+          <button id="week-view" type="button" aria-pressed="true">Week</button>
+          <button id="month-view" type="button" aria-pressed="false">Month</button>
+        </div>
+      </div>
+      <div id="calendar" class="calendar-grid"></div>
+      <p id="calendar-status" class="calendar-status" role="status" hidden></p>
+      <section id="day-details" class="calendar-details" aria-labelledby="selected-date" hidden>
+        <h3 id="selected-date"></h3>
+        <div id="selected-assessments"></div>
+      </section>
+    </section>
+  </main>
+  <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
+  <script src="week.js?v=e2254f9e"></script>
+  <script src="student.js?v=11f82058"></script>
+</body>
+</html>

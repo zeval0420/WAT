@@ -5,9 +5,12 @@ const mondayOf = (s) => { const d = new Date(s + 'T00:00:00'); return addDays(s,
 const schoolDate = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
 });
-function currentWeekStart() {
+function currentSchoolDate() {
   const parts = Object.fromEntries(schoolDate.formatToParts(new Date()).map(({ type, value }) => [type, value]));
-  return mondayOf(`${parts.year}-${parts.month}-${parts.day}`);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+function currentWeekStart() {
+  return mondayOf(currentSchoolDate());
 }
 const fmt = (s) => new Date(s + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
