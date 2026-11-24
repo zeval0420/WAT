@@ -1,4 +1,4 @@
-let start = mondayOf(iso(new Date()));
+let start = currentWeekStart();
 let items = [], editing = null, approved = false, loadVersion = 0, saving = false;
 const sel = $('batch');
 const grid = document.querySelector('.assessment-grid');
@@ -85,10 +85,10 @@ async function load() {
     items = w.items;
     approved = w.approved;
     $('wk').textContent = rangeLabel(w.start, w.end);
-    $('status').textContent = approved ? 'Visible to students' : 'Not yet approved';
-    $('status').className = 'pill ' + (approved ? 'ok' : 'no');
+    $('status').textContent = w.visibleToStudents ? 'Visible to students' : 'Awaiting batch adviser approval';
+    $('status').className = 'pill ' + (w.visibleToStudents ? 'ok' : 'no');
     const approve = $('approve');
-    approve.hidden = !w.isAdviser;
+    approve.hidden = !w.isAdviser || !w.requiresApproval;
     approve.textContent = approved ? 'Withdraw approval' : 'Approve week';
     approve.className = approved ? '' : 'primary';
     renderGrid();
@@ -140,7 +140,7 @@ function changeWeek(nextStart) {
 }
 $('prev').onclick = () => changeWeek(addDays(start, -7));
 $('next').onclick = () => changeWeek(addDays(start, 7));
-$('cur').onclick = () => changeWeek(mondayOf(iso(new Date())));
+$('cur').onclick = () => changeWeek(currentWeekStart());
 sel.onchange = () => changeWeek(start);
 $('implementation').onchange = updateGivenLabel;
 $('cancel').onclick = () => { form.hidden = true; };

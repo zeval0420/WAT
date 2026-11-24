@@ -30,13 +30,18 @@ function weekData($db, $user, $batch, $date)
     if (!is_string($batch) || $batch === '') {
         reply(['error' => 'Batch required.'], 400);
     }
-    $day = new DateTimeImmutable(validDate($date) ? $date : 'today', new DateTimeZone('UTC'));
+    $timezone = new DateTimeZone('Asia/Manila');
+    $currentMonday = (new DateTimeImmutable('today', $timezone))->modify('monday this week');
+    $day = validDate($date) ? new DateTimeImmutable($date, $timezone) : $currentMonday;
     $monday = $day->modify('monday this week');
     $start = $monday->format('Y-m-d');
     $end = $monday->modify('+6 days')->format('Y-m-d');
     $approved = (bool) rows($db, 'SELECT 1 FROM wat_week_approvals WHERE batch=? AND week_start=?', [$batch, $start]);
-    if ($user === null && !$approved) {
-        return compact('start', 'end', 'approved') + ['items' => []];
+    $requiresApproval = $monday > $currentMonday;
+    $visibleToStudents = !$requiresApproval || $approved;
+    $week = compact('start', 'end', 'approved', 'requiresApproval', 'visibleToStudents');
+    if ($user === null && !$visibleToStudents) {
+        return $week + ['items' => []];
     }
 
     $params = [$batch, $start, $end];
@@ -68,7 +73,7 @@ function weekData($db, $user, $batch, $date)
     if ($user === null) {
         $publicFields = array_flip(['id', 'subject', 'date_given', 'deadline', 'description']);
         $items = array_map(static function ($item) use ($publicFields) { return array_intersect_key($item, $publicFields); }, $items);
-        return compact('start', 'end', 'approved', 'items');
+        return $week + compact('items');
     }
 
     // accounts and the WAT tables use different collations. Look names up separately.
@@ -84,7 +89,7 @@ function weekData($db, $user, $batch, $date)
         $item['teacher'] = $names[$id] ?? ($id === 'admin.controller' ? $id : '');
     }
     unset($item);
-    return compact('start', 'end', 'approved', 'items', 'isAdviser');
+    return $week + compact('items', 'isAdviser');
 }
 
 function saveAssessment($db, $user, $method, $input, $id)

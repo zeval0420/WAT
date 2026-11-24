@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS `wat_assessments` (
   CONSTRAINT `fk_wat_subject` FOREIGN KEY (`subject_id`) REFERENCES `wat_subjects` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- One row per approved (batch, week). Students only see approved weeks.
+-- One row per approved (batch, week). Future weeks need approval to be visible to students.
 CREATE TABLE IF NOT EXISTS `wat_week_approvals` (
   `batch` varchar(50) NOT NULL,
   `week_start` date NOT NULL,

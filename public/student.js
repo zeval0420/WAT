@@ -1,4 +1,4 @@
-let start = mondayOf(iso(new Date()));
+let start = currentWeekStart();
 let loadVersion = 0;
 const gradeSelect = $('batch');
 const rows = $('rows');
@@ -29,7 +29,7 @@ async function load({ reset = false } = {}) {
     $('wk').textContent = rangeLabel(week.start, week.end);
     rows.innerHTML = week.items.map((item) =>
       `<tr><td>${esc(item.subject)}</td><td>${fmt(item.date_given)}</td><td>${fmt(item.deadline)}</td><td>${esc(item.description)}</td></tr>`).join('');
-    const message = week.approved ? 'No assessments this week.' : 'This week’s assessments have not been published yet.';
+    const message = week.visibleToStudents ? 'No assessments this week.' : 'Awaiting batch adviser approval.';
     showMessage(week.items.length ? '' : message);
     $('live').textContent = '● live';
   } catch (error) {
@@ -46,7 +46,7 @@ function changeWeek(nextStart) {
 
 $('prev').onclick = () => changeWeek(addDays(start, -7));
 $('next').onclick = () => changeWeek(addDays(start, 7));
-$('cur').onclick = () => changeWeek(mondayOf(iso(new Date())));
+$('cur').onclick = () => changeWeek(currentWeekStart());
 gradeSelect.onchange = () => {
   try { localStorage.setItem('wat_batch', gradeSelect.value); } catch {}
   load({ reset: true });
