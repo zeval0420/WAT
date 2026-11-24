@@ -4,7 +4,7 @@
 @font-face{font-family:'Inter Fallback';src:local('Arial'),local('ArialMT');size-adjust:105.6%;ascent-override:91.7%;descent-override:22.8%;line-gap-override:0%}
 
 :root{
-  color-scheme:light;
+  color-scheme:only light;
   --color-primary:#0B1B62;--color-primary-mid:#2B55C4;--color-secondary:#4F73D9;
   --header-gradient:linear-gradient(to right,#0e0054,#0036af,#0e0054);
   --color-bg:#EBF0FA;--color-surface:#FFFFFF;--color-input-bg:#F8FAFC;
