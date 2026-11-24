@@ -76,7 +76,7 @@ function weekData($db, $user, $batch, $date)
         });
     }
     if ($user === null) {
-        $publicFields = array_flip(['id', 'subject', 'date_given', 'deadline', 'description', 'assessment_type']);
+        $publicFields = array_flip(['id', 'subject', 'date_given', 'deadline', 'topic', 'description', 'assessment_type']);
         $items = array_map(static function ($item) use ($publicFields) { return array_intersect_key($item, $publicFields); }, $items);
         return $week + compact('items');
     }
@@ -151,6 +151,10 @@ function saveAssessment($db, $user, $method, $input, $id)
     $mode = $entry['implementation'] ?? '';
     $topic = trim($entry['topic'] ?? '');
     $remarks = trim($entry['remarks'] ?? '');
+    $hasTopic = preg_match('/\S/u', $topic) === 1;
+    if (!$hasTopic && (!$old || preg_match('/\S/u', $old['topic'] ?? '') === 1)) {
+        reply(['error' => 'Enter the main topic or lesson.'], 400);
+    }
     if (validDate($given) && $given !== ($old['date_given'] ?? null) && isWeekend($given)) {
         reply(['error' => 'Choose a date given from Monday to Friday.'], 400);
     }
@@ -158,7 +162,7 @@ function saveAssessment($db, $user, $method, $input, $id)
         reply(['error' => 'Choose a deadline from Monday to Friday.'], 400);
     }
     if (!$batch || !validDate($given) || !validDate($due) ||
-        $due < $given || $description === '' || preg_match('/.{256}/su', $topic) || preg_match('/.{4001}/su', $remarks) ||
+        $due < $given || preg_match('/.{256}/su', $topic) || preg_match('/.{4001}/su', $remarks) ||
         !in_array($type, ['', 'formative', 'summative', 'alternative'], true) ||
         !in_array($mode, ['', 'sync', 'async'], true)) {
         reply(['error' => 'Invalid entry. Check fields and deadline.'], 400);
@@ -185,7 +189,7 @@ function saveAssessment($db, $user, $method, $input, $id)
         $subjectId = $stmt->insert_id;
     }
 
-    $values = [$subjectId, $given, $due, $description, $type ?: null, $topic === '' ? null : $topic,
+    $values = [$subjectId, $given, $due, $description, $type ?: null, $hasTopic ? $topic : null,
         $mode ?: null, $remarks === '' ? null : $remarks];
     if ($old) {
         $catalogUpdate = $catalogSubject && $subjectCode !== null ? ', catalog_subject_id=NULL' : '';

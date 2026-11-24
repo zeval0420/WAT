@@ -50,7 +50,8 @@ function assessmentCards(items) {
     <article class="calendar-assessment"${assessmentColorStyle(item.assessment_type)}>
       <h4>${esc(item.subject)}</h4>
       ${assessmentTypeTag(item.assessment_type)}
-      <p>${esc(item.description)}</p>
+      ${item.topic ? `<p><strong>${esc(item.topic)}</strong></p>` : ''}
+      ${item.description ? `<p>${esc(item.description)}</p>` : ''}
       <small>Given ${fmt(item.date_given)}</small>
     </article>`).join('');
 }

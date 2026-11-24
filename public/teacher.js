@@ -36,7 +36,7 @@ function assessmentCard(item, legacy = false) {
     <h4>${subject}</h4>
     <div class="teacher-tags">${assessmentTypeTag(item.assessment_type)}${tag(item.implementation, modes)}</div>
     ${item.topic ? `<p class="teacher-topic">${esc(item.topic)}</p>` : ''}
-    <p>${esc(item.description)}</p>
+    ${item.description ? `<p>${esc(item.description)}</p>` : ''}
     ${item.remarks ? `<p class="teacher-remarks">Remarks: ${esc(item.remarks)}</p>` : ''}
     <small>${item.implementation === 'async' ? 'Started' : 'Given'} ${fmt(item.date_given)}${legacy ? ` · Due ${fmt(item.deadline)}` : ''}</small>
     ${item.teacher ? `<small class="teacher-byline">${esc(item.teacher)}</small>` : ''}
@@ -182,7 +182,10 @@ function openEditor(day, item = null) {
   $('given').value = item?.date_given || (weekday > day ? day : weekday);
   $('due').value = day;
   $('assessment-type').value = item?.assessment_type || '';
-  $('topic').value = item?.topic || '';
+  const topic = $('topic');
+  topic.value = item?.topic?.trim() || '';
+  topic.required = !item || Boolean(topic.value);
+  $('topic-label').textContent = topic.required ? 'Topic / Lesson (required)' : 'Topic / Lesson';
   $('desc').value = item?.description || '';
   $('implementation').value = item?.implementation || '';
   $('remarks').value = item?.remarks || '';
@@ -341,7 +344,7 @@ $('add-assessment').onclick = () => {
   openEditor(defaultDay);
 };
 $('implementation').onchange = () => {
-  $('given-label').textContent = $('implementation').value === 'async' ? 'Date started (async)' : 'Date given';
+  $('given-label').textContent = $('implementation').value === 'async' ? 'Date started (required)' : 'Date given (required)';
 };
 for (const id of ['given', 'due']) $(id).oninput = validateEditorDates;
 $('move-date').oninput = () => dateError('move-date', deadlineError($('move-date').value, moving.date_given));

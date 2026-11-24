@@ -67,13 +67,13 @@
       <dialog id="editor" class="card app-dialog teacher-dialog" aria-labelledby="editor-title">
         <form id="form" class="form">
           <h2 id="editor-title" class="wide">Add assessment</h2>
-          <label>Subject<select id="subj" required autofocus></select></label>
+          <label>Subject (required)<select id="subj" required autofocus></select></label>
           <label>Assessment type<select id="assessment-type"><option value="">Select type</option><option value="formative">Formative Assessment</option><option value="summative">Summative Assessment</option><option value="alternative">Alternative Assessment</option></select></label>
           <label>Nature of implementation<select id="implementation"><option value="">Select implementation</option><option value="sync">Synchronous (in class)</option><option value="async">Asynchronous</option></select></label>
-          <label><span id="given-label">Date given</span><input id="given" type="date" aria-describedby="given-error" required><span id="given-error" class="err" aria-live="polite"></span></label>
-          <label>Deadline<input id="due" type="date" aria-describedby="due-error" required><span id="due-error" class="err" aria-live="polite"></span></label>
-          <label class="wide">Topic / Lesson<input id="topic" maxlength="255"></label>
-          <label class="wide">Assessment description<textarea id="desc" rows="3" required></textarea></label>
+          <label><span id="given-label">Date given (required)</span><input id="given" type="date" aria-describedby="given-error" required><span id="given-error" class="err" aria-live="polite"></span></label>
+          <label>Deadline (required)<input id="due" type="date" aria-describedby="due-error" required><span id="due-error" class="err" aria-live="polite"></span></label>
+          <label class="wide"><span id="topic-label">Topic / Lesson (required)</span><input id="topic" maxlength="255" pattern=".*\S.*" title="Enter the main topic." required></label>
+          <label class="wide">Assessment description (optional)<textarea id="desc" rows="3"></textarea></label>
           <label class="wide">Remarks<textarea id="remarks" rows="2" maxlength="4000"></textarea></label>
           <div class="wide teacher-actions"><button class="primary" id="save">Add assessment</button><button type="button" id="cancel">Cancel</button></div>
           <div class="wide err" id="ferr" role="alert"></div>
@@ -99,6 +99,6 @@
   </main>
   <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
   <script src="week.js?v=461cc74a"></script>
-  <script src="teacher.js?v=040c6aa5"></script>
+  <script src="teacher.js?v=51de0943"></script>
 </body>
 </html>
