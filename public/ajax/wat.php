@@ -8,7 +8,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 $routes = [
     'me' => ['GET'], 'logout' => ['POST'], 'batches' => ['GET'], 'week' => ['GET'],
     'subjects' => ['GET'], 'teacherBatches' => ['GET'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
-    'assessment' => ['POST', 'PUT', 'DELETE'],
+    'assessment' => ['POST', 'PUT', 'PATCH', 'DELETE'],
 ];
 if (!is_string($action) || !isset($routes[$action])) {
     reply(['error' => 'Unknown action.'], 404);

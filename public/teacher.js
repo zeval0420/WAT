@@ -1,37 +1,131 @@
 let start = currentWeekStart();
-let items = [], editing = null, approved = false, loadVersion = 0, saving = false;
+let items = [], approved = false, loadVersion = 0, saving = false;
+let editing = null, editorVersion = 0, moving = null;
+let dragged = null, dropDay = null, rendered = '';
 const sel = $('batch');
-const grid = document.querySelector('.assessment-grid');
+const board = $('teacher-board');
+const weekendCards = $('weekend-cards');
+const editor = $('editor');
 const form = $('form');
-let editorVersion = 0, originalSubject = null;
+const moveDialog = $('move-dialog');
 const types = { formative: 'Formative Assessment', summative: 'Summative Assessment', alternative: 'Alternative Assessment' };
-const modes = { sync: 'Synchronous (in class)', async: 'Asynchronous' };
-const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+const modes = { sync: 'Synchronous', async: 'Asynchronous' };
+const isWeekend = (date) => [0, 6].includes(new Date(date + 'T00:00:00').getDay());
 
-function showError(error) {
-  $('grid-error').hidden = !error;
-  $('grid-error').textContent = error?.message || '';
+function message(id, text = '') {
+  const element = $(id);
+  if (element.textContent !== text) element.textContent = text;
+  element.hidden = !text;
+}
+
+function tag(value, labels) {
+  if (!Object.hasOwn(labels, value)) return '';
+  return `<span class="assessment-tag assessment-tag--${value}">${labels[value]}</span>`;
+}
+
+function assessmentCard(item, legacy = false) {
+  const id = esc(item.id);
+  const subject = esc(item.subject);
+  return `<article class="calendar-assessment teacher-assessment" draggable="true" data-assessment="${id}">
+    <h4>${subject}</h4>
+    <div class="teacher-tags">${tag(item.assessment_type, types)}${tag(item.implementation, modes)}</div>
+    ${item.topic ? `<p class="teacher-topic">${esc(item.topic)}</p>` : ''}
+    <p>${esc(item.description)}</p>
+    ${item.remarks ? `<p class="teacher-remarks">Remarks: ${esc(item.remarks)}</p>` : ''}
+    <small>${item.implementation === 'async' ? 'Started' : 'Given'} ${fmt(item.date_given)}${legacy ? ` · Due ${fmt(item.deadline)}` : ''}</small>
+    ${item.teacher ? `<small class="teacher-byline">${esc(item.teacher)}</small>` : ''}
+    <div class="teacher-actions">
+      <button type="button" data-action="edit" aria-label="Edit ${subject}">Edit</button>
+      <button type="button" data-action="move" aria-label="Move ${subject}">Move</button>
+      <button type="button" class="danger" data-action="delete" aria-label="Delete ${subject}">Delete</button>
+    </div>
+  </article>`;
+}
+
+function renderBoard() {
+  const today = currentSchoolDate();
+  const signature = JSON.stringify([start, sel.value, today, items]);
+  if (rendered === signature) return;
+  rendered = signature;
+  const active = document.activeElement;
+  const focusedCard = active?.closest('[data-assessment]')?.dataset.assessment;
+  const focusedAction = active?.dataset.action;
+  const focusedAdd = active?.dataset.add;
+  const days = Array.from({ length: 5 }, (_, index) => addDays(start, index));
+  board.innerHTML = days.map((day) => `<section class="calendar-day teacher-day" data-day="${day}">
+    <div class="teacher-day-heading">
+      <h3><time datetime="${day}" ${day === today ? 'aria-current="date"' : ''}>${fmt(day)}</time></h3>
+      <button type="button" class="teacher-day-add" data-add="${day}" aria-label="Add assessment for ${fmt(day)}">+</button>
+    </div>
+    ${items.filter((item) => item.deadline === day).map((item) => assessmentCard(item)).join('')}
+  </section>`).join('');
+  const weekend = items.filter((item) => isWeekend(item.deadline));
+  $('weekend-assessments').hidden = !weekend.length;
+  weekendCards.innerHTML = weekend.map((item) => assessmentCard(item, true)).join('');
+  if (focusedCard && focusedAction) {
+    const target = document.querySelector(`[data-assessment="${CSS.escape(focusedCard)}"] [data-action="${focusedAction}"]`);
+    (target || $('add-assessment')).focus();
+  } else if (focusedAdd) {
+    board.querySelector(`[data-add="${focusedAdd}"]`)?.focus();
+  }
+}
+
+async function load() {
+  if (!sel.value || dragged) return;
+  const version = ++loadVersion;
+  try {
+    const week = await api('teacherWeek', 'GET', null, { batch: sel.value, start });
+    if (version !== loadVersion || dragged) return;
+    items = week.items;
+    approved = week.approved;
+    const status = $('status');
+    status.className = 'pill ' + (week.visibleToStudents ? 'ok' : 'no');
+    message('status', week.visibleToStudents ? 'Visible to students' : 'Awaiting batch adviser approval');
+    const approve = $('approve');
+    approve.hidden = !week.isAdviser || !week.requiresApproval;
+    approve.textContent = approved ? 'Withdraw approval' : 'Approve week';
+    renderBoard();
+  } catch (error) {
+    if (version !== loadVersion) return;
+    if (error.status === 401) location.replace('login.html');
+    else message('calendar-error', error.message);
+  }
+}
+
+function showWeek(nextStart) {
+  start = nextStart;
+  items = [];
+  $('wk').textContent = rangeLabel(start, addDays(start, 4));
+  message('status');
+  message('calendar-error');
+  message('notice');
+  $('approve').hidden = true;
+  renderBoard();
+  return load();
 }
 
 async function boot() {
-  const me = (await api('me')).user;
-  if (!me) { location.replace('login.html'); return; }
+  const { user } = await api('me');
+  if (!user) { location.replace('login.html'); return; }
   $('app').hidden = false;
-  $('who').textContent = me.name;
+  $('who').textContent = user.name;
   const { batches, adviserOf } = await api('teacherBatches');
   setGradeOptions(sel, batches);
-  const own = adviserOf[0];
-  if (own) sel.value = own;
+  if (adviserOf[0]) sel.value = adviserOf[0];
   $('empty').hidden = batches.length > 0;
-  grid.hidden = !batches.length;
+  $('move-hint').hidden = !batches.length;
+  board.hidden = !batches.length;
+  sel.disabled = !batches.length;
+  $('add-assessment').disabled = !batches.length;
+  $('wk').textContent = rangeLabel(start, addDays(start, 4));
   await load();
-  watchWeek(load);
+  watchWeek(() => { if (!saving) return load(); });
 }
 
 async function loadSubjectOptions(batch, current, version) {
   const select = $('subj');
-  select.disabled = true;
   select.replaceChildren(new Option('Loading subjects…', ''));
+  $('save').disabled = true;
   try {
     const courses = await api('subjects', 'GET', null, { batch });
     if (version !== editorVersion) return;
@@ -40,7 +134,7 @@ async function loadSubjectOptions(batch, current, version) {
     if (current) codes.add(current);
     for (const code of codes) select.add(new Option(code, code));
     if (current) select.value = current;
-    select.disabled = false;
+    $('save').disabled = false;
   } catch (error) {
     if (version !== editorVersion) return;
     select.replaceChildren(new Option('Could not load subjects', ''));
@@ -48,116 +142,213 @@ async function loadSubjectOptions(batch, current, version) {
   }
 }
 
-function tag(value, labels) {
-  if (!Object.hasOwn(labels, value)) return '';
-  return `<span class="assessment-tag assessment-tag--${value}">${labels[value]}</span>`;
+function dateError(id, error) {
+  const input = $(id);
+  input.setCustomValidity(error);
+  input.setAttribute('aria-invalid', String(Boolean(error)));
+  message(`${id}-error`, error);
 }
 
-function renderGrid() {
-  for (const group of [...grid.tBodies]) group.remove();
-  for (let offset = 0; offset < 7; offset++) {
-    const day = addDays(start, offset);
-    const entries = items.filter((item) => item.deadline === day);
-    const group = grid.createTBody();
-    const date = `<th scope="rowgroup" rowspan="${entries.length + 1}"><time datetime="${day}"><strong>${esc(dayName.format(new Date(day + 'T00:00:00')))}</strong>${fmt(day)}</time></th>`;
-    group.innerHTML = entries.map((item, index) => `<tr>
-      ${index === 0 ? date : ''}
-      <td>${tag(item.assessment_type, types)}</td>
-      <td>${esc(item.subject)}${item.teacher ? `<div class="live">${esc(item.teacher)}</div>` : ''}</td>
-      <td>${esc(item.topic || '')}</td>
-      <td>${esc(item.description)}</td>
-      <td>${tag(item.implementation, modes)}</td>
-      <td>${item.implementation === 'async' ? fmt(item.date_given) : ''}</td>
-      <td>${esc(item.remarks || '')}</td>
-      <td class="grid-actions"><button type="button" data-edit="${item.id}">Edit</button> <button type="button" class="danger" data-delete="${item.id}">Delete</button></td>
-    </tr>`).join('') + `<tr class="grid-add">${entries.length ? '' : date}
-      <td colspan="8"><button type="button" data-add="${day}" aria-label="Add assessment for ${fmt(day)}">+ Add assessment</button></td>
-    </tr>`;
-  }
+function deadlineError(date, given) {
+  if (isWeekend(date)) return 'Choose a deadline from Monday to Friday.';
+  if (date && given && date < given) return 'The deadline must be on or after the date given.';
+  return '';
 }
 
-async function load() {
-  if (!sel.value) return;
-  const version = ++loadVersion;
-  try {
-    const w = await api('teacherWeek', 'GET', null, { batch: sel.value, start });
-    if (version !== loadVersion) return;
-    items = w.items;
-    approved = w.approved;
-    $('wk').textContent = rangeLabel(w.start, w.end);
-    $('status').textContent = w.visibleToStudents ? 'Visible to students' : 'Awaiting batch adviser approval';
-    $('status').className = 'pill ' + (w.visibleToStudents ? 'ok' : 'no');
-    const approve = $('approve');
-    approve.hidden = !w.isAdviser || !w.requiresApproval;
-    approve.textContent = approved ? 'Withdraw approval' : 'Approve week';
-    approve.className = approved ? '' : 'primary';
-    renderGrid();
-  } catch (error) {
-    if (version !== loadVersion) return;
-    if (error.status === 401) location.replace('login.html');
-    else showError(error);
-  }
+function validateEditorDates() {
+  const given = $('given').value;
+  const due = $('due').value;
+  dateError('given', given !== editing?.date_given && isWeekend(given)
+    ? 'Choose a date from Monday to Friday.' : '');
+  dateError('due', deadlineError(due, given));
 }
 
-function updateGivenLabel() {
-  $('given-label').textContent = $('implementation').value === 'async' ? 'Date started (async)' : 'Date given';
-}
-
-function openEditor(day, item) {
-  editing = item?.id ?? null;
+function openEditor(day, item = null) {
+  editing = item;
   form.reset();
-  originalSubject = item?.subject ?? null;
-  const today = iso(new Date());
-  $('given').value = item?.date_given || (today > day ? day : today);
+  const today = currentSchoolDate();
+  const weekday = isWeekend(today) ? addDays(mondayOf(today), 4) : today;
+  $('given').value = item?.date_given || (weekday > day ? day : weekday);
   $('due').value = day;
   $('assessment-type').value = item?.assessment_type || '';
   $('topic').value = item?.topic || '';
   $('desc').value = item?.description || '';
   $('implementation').value = item?.implementation || '';
   $('remarks').value = item?.remarks || '';
-  $('editor-title').textContent = (editing ? 'Edit assessment for ' : 'Add assessment for ') + sel.value;
-  $('save').textContent = editing ? 'Save changes' : 'Add assessment';
+  $('editor-title').textContent = item ? 'Edit assessment' : 'Add assessment';
+  $('save').textContent = item ? 'Save changes' : 'Add assessment';
   $('ferr').textContent = '';
-  updateGivenLabel();
-  form.hidden = false;
-  loadSubjectOptions(sel.value, originalSubject, ++editorVersion);
-  $('assessment-type').focus();
-  form.scrollIntoView({ block: 'nearest' });
+  $('implementation').onchange();
+  validateEditorDates();
+  editor.showModal();
+  loadSubjectOptions(sel.value, item?.subject, ++editorVersion);
 }
 
-function changeWeek(nextStart) {
-  start = nextStart;
-  editorVersion++;
-  form.hidden = true;
-  items = [];
-  for (const group of [...grid.tBodies]) group.remove();
-  $('wk').textContent = rangeLabel(start, addDays(start, 6));
-  $('status').className = 'pill';
-  $('status').textContent = '';
-  $('approve').hidden = true;
-  showError();
-  load();
+function openMove(item) {
+  moving = item;
+  $('move-title').textContent = `Move ${item.subject}`;
+  $('move-date').value = isWeekend(item.deadline) ? '' : item.deadline;
+  $('move-error').textContent = '';
+  dateError('move-date', '');
+  moveDialog.showModal();
 }
-$('prev').onclick = () => changeWeek(addDays(start, -7));
-$('next').onclick = () => changeWeek(addDays(start, 7));
-$('cur').onclick = () => changeWeek(currentWeekStart());
-sel.onchange = () => changeWeek(start);
-$('implementation').onchange = updateGivenLabel;
-$('cancel').onclick = () => { form.hidden = true; };
+
+function setSaving(value) {
+  saving = value;
+  if (value) ++loadVersion;
+  for (const id of ['batch', 'prev', 'next', 'cur', 'approve', 'add-assessment', 'out',
+    'save', 'cancel', 'move-save', 'move-cancel']) {
+    $(id).disabled = value;
+  }
+}
+
+async function refreshAfterSave(due, text) {
+  const week = mondayOf(due);
+  const refresh = week === start ? load() : showWeek(week);
+  message('notice', text);
+  await refresh;
+}
+
+async function moveAssessment(item, due, dialog = false) {
+  if (saving) return;
+  const error = deadlineError(due, item.date_given);
+  if (error) { message('calendar-error', error); return; }
+  if (due === item.deadline) {
+    if (dialog) moveDialog.close();
+    return;
+  }
+  message('calendar-error');
+  message('notice');
+  setSaving(true);
+  try {
+    await api('assessment', 'PATCH', { batch: sel.value, deadline: due }, { id: item.id });
+    if (dialog) moveDialog.close();
+    await refreshAfterSave(due, `Assessment moved to ${fmt(due)}.`);
+  } catch (error) {
+    if (dialog) $('move-error').textContent = error.message;
+    else message('calendar-error', error.message);
+  } finally {
+    setSaving(false);
+  }
+}
+
+function handleCardClick(event) {
+  if (saving) return;
+  const add = event.target.closest('[data-add]');
+  if (add) { openEditor(add.dataset.add); return; }
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const item = items.find((entry) => String(entry.id) === button.closest('[data-assessment]').dataset.assessment);
+  if (!item) return;
+  if (button.dataset.action === 'edit') openEditor(item.deadline, item);
+  if (button.dataset.action === 'move') openMove(item);
+  if (button.dataset.action === 'delete') deleteAssessment(item);
+}
+
+async function deleteAssessment(item) {
+  if (!confirm('Delete this assessment?')) return;
+  message('calendar-error');
+  message('notice');
+  setSaving(true);
+  try {
+    await api('assessment', 'DELETE', null, { id: item.id, batch: sel.value });
+    message('notice', 'Assessment deleted.');
+    await load();
+  } catch (error) {
+    message('calendar-error', error.message);
+  } finally {
+    setSaving(false);
+  }
+}
+
+function dragStart(event) {
+  const card = event.target.closest('[data-assessment]');
+  if (saving || !card || event.target !== card) { event.preventDefault(); return; }
+  dragged = items.find((item) => String(item.id) === card.dataset.assessment);
+  if (!dragged) { event.preventDefault(); return; }
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', card.dataset.assessment);
+  card.classList.add('is-dragging');
+}
+
+function clearDropDay() {
+  dropDay?.classList.remove('is-drop-target');
+  dropDay = null;
+}
+
+function endDrag() {
+  document.querySelector('.is-dragging')?.classList.remove('is-dragging');
+  clearDropDay();
+  dragged = null;
+}
+
+for (const container of [board, weekendCards]) {
+  container.onclick = handleCardClick;
+  container.ondragstart = dragStart;
+  container.ondragend = endDrag;
+}
+board.ondragover = (event) => {
+  const day = event.target.closest('[data-day]');
+  if (!dragged || !day) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  if (day === dropDay) return;
+  clearDropDay();
+  dropDay = day;
+  dropDay.classList.add('is-drop-target');
+};
+board.ondragleave = (event) => {
+  if (dropDay && !dropDay.contains(event.relatedTarget)) clearDropDay();
+};
+board.ondrop = (event) => {
+  const day = event.target.closest('[data-day]');
+  if (!dragged || !day) return;
+  event.preventDefault();
+  const item = dragged;
+  endDrag();
+  moveAssessment(item, day.dataset.day);
+};
+
+$('prev').onclick = () => showWeek(addDays(start, -7));
+$('next').onclick = () => showWeek(addDays(start, 7));
+$('cur').onclick = () => showWeek(currentWeekStart());
+sel.onchange = () => showWeek(start);
+$('add-assessment').onclick = () => {
+  const today = currentSchoolDate();
+  const defaultDay = mondayOf(today) === start ? (isWeekend(today) ? addDays(start, 4) : today) : start;
+  openEditor(defaultDay);
+};
+$('implementation').onchange = () => {
+  $('given-label').textContent = $('implementation').value === 'async' ? 'Date started (async)' : 'Date given';
+};
+for (const id of ['given', 'due']) $(id).oninput = validateEditorDates;
+$('move-date').oninput = () => dateError('move-date', deadlineError($('move-date').value, moving.date_given));
+$('cancel').onclick = () => editor.close();
+$('move-cancel').onclick = () => moveDialog.close();
+editor.onclose = () => { editorVersion++; };
+for (const dialog of [editor, moveDialog]) {
+  dialog.oncancel = (event) => { if (saving) event.preventDefault(); };
+}
 $('out').onclick = async () => {
   try { await api('logout', 'POST'); location.replace('login.html'); }
-  catch (error) { showError(error); }
+  catch (error) { message('calendar-error', error.message); }
 };
 $('approve').onclick = async () => {
-  showError();
+  message('calendar-error');
+  message('notice');
+  setSaving(true);
   try { await api('approve', 'POST', { batch: sel.value, start, approved: !approved }); await load(); }
-  catch (error) { showError(error); }
+  catch (error) { message('calendar-error', error.message); }
+  finally { setSaving(false); }
 };
+
 form.onsubmit = async (event) => {
   event.preventDefault();
-  if (saving || $('subj').disabled) return;
-  saving = $('save').disabled = true;
+  if (saving || $('save').disabled) return;
+  validateEditorDates();
+  if (!form.reportValidity()) return;
   $('ferr').textContent = '';
+  setSaving(true);
   const body = {
     batch: sel.value,
     date_given: $('given').value, deadline: $('due').value,
@@ -165,34 +356,21 @@ form.onsubmit = async (event) => {
     description: $('desc').value, implementation: $('implementation').value,
     remarks: $('remarks').value,
   };
-  if ($('subj').value !== originalSubject) body.subject_code = $('subj').value;
+  if ($('subj').value !== editing?.subject) body.subject_code = $('subj').value;
   try {
-    if (editing) await api('assessment', 'PUT', body, { id: editing });
+    if (editing) await api('assessment', 'PUT', body, { id: editing.id });
     else await api('assessment', 'POST', body);
-    form.hidden = true;
-    await load();
+    editor.close();
+    await refreshAfterSave(body.deadline, editing ? 'Assessment updated.' : 'Assessment added.');
   } catch (error) {
-    if (form.hidden) showError(error);
-    else $('ferr').textContent = error.message;
+    $('ferr').textContent = error.message;
   } finally {
-    saving = $('save').disabled = false;
+    setSaving(false);
   }
 };
-grid.onclick = async (event) => {
-  const { add, edit, delete: remove } = event.target.dataset;
-  if (saving) return;
-  if (add) openEditor(add);
-  if (edit) {
-    const item = items.find((entry) => String(entry.id) === edit);
-    if (item) openEditor(item.deadline, item);
-  }
-  if (remove && confirm('Delete this assessment?')) {
-    showError();
-    try {
-      await api('assessment', 'DELETE', null, { id: remove, batch: sel.value });
-      if (String(editing) === remove) form.hidden = true;
-      await load();
-    } catch (error) { showError(error); }
-  }
+$('move-form').onsubmit = (event) => {
+  event.preventDefault();
+  $('move-date').oninput();
+  if ($('move-form').reportValidity()) moveAssessment(moving, $('move-date').value, true);
 };
-boot().catch((error) => { $('app').hidden = false; showError(error); });
+boot().catch((error) => { $('app').hidden = false; message('calendar-error', error.message); });

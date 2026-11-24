@@ -1,31 +1,83 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="only light">
-<title>WAT – Teacher</title><link rel="stylesheet" href="style.css"></head><body><header class="header"><img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60"><div class="school">Philippine Science High School<br>Ilocos Region Campus</div><div class="system-name">WAT</div><a class="nav-link" href="./">Student view</a></header><main class="teacher-main">
-<section id="app" hidden>
-  <h1>Manage assessments</h1>
-  <div class="bar">
-    <label for="batch">Grade level</label><select id="batch"></select>
-    <button id="prev" aria-label="Previous week">‹</button><span class="wk" id="wk"></span><button id="next" aria-label="Next week">›</button>
-    <button id="cur">This week</button><span id="status" class="pill"></span><span class="sp"></span>
-    <button id="approve" hidden></button><span id="who" class="live"></span><button id="out">Log out</button>
-  </div>
-  <p id="grid-error" class="err" role="alert" hidden></p>
-  <form id="form" class="card form" hidden>
-    <h2 id="editor-title" class="wide">Add assessment</h2>
-    <label>Assessment type<select id="assessment-type"><option value="">Select type</option><option value="formative">Formative Assessment</option><option value="summative">Summative Assessment</option><option value="alternative">Alternative Assessment</option></select></label>
-    <label>Subject<select id="subj" required></select></label>
-    <label>Nature of implementation<select id="implementation"><option value="">Select implementation</option><option value="sync">Synchronous (in class)</option><option value="async">Asynchronous</option></select></label>
-    <label><span id="given-label">Date given</span><input id="given" type="date" required></label>
-    <label>Deadline<input id="due" type="date" required></label>
-    <label class="wide">Topic / Lesson<input id="topic" maxlength="255"></label>
-    <label class="wide">Assessment description<textarea id="desc" rows="2" required></textarea></label>
-    <label class="wide">Remarks<textarea id="remarks" rows="2" maxlength="4000"></textarea></label>
-    <div class="wide acts"><button class="primary" id="save">Add assessment</button><button type="button" id="cancel">Cancel</button><span id="ferr" class="err" role="alert"></span></div>
-  </form>
-  <div class="card assessment-scroll" tabindex="0" role="region" aria-label="Weekly assessment grid">
-    <table class="assessment-grid" aria-label="Weekly assessments">
-      <thead><tr><th scope="col">Date</th><th scope="col">Assessment type</th><th scope="col">Subject</th><th scope="col">Topic / Lesson</th><th scope="col">Assessment description</th><th scope="col">Nature of implementation</th><th scope="col">Date started (async)</th><th scope="col">Remarks</th><th scope="col">Actions</th></tr></thead>
-    </table>
-    <div id="empty" class="empty" hidden>No batches set up yet.</div>
-  </div>
-</section>
-</main><footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer><script src="week.js?v=e2254f9e"></script><script src="teacher.js?v=91e19e17"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>WAT – Teacher</title>
+  <link rel="stylesheet" href="style.css?v=ace8e32f">
+</head>
+<body>
+  <header class="header">
+    <img class="logo" src="img/logo.png" alt="Philippine Science High School logo" width="60" height="60">
+    <div class="school">Philippine Science High School<br>Ilocos Region Campus</div>
+    <div class="system-name">WAT</div>
+    <a class="nav-link" href="./">Student view</a>
+  </header>
+  <main class="teacher-main">
+    <section id="app" hidden>
+      <div class="calendar-heading">
+        <h1>Manage assessments</h1>
+        <div class="teacher-account"><span id="who" class="live"></span><button id="out" type="button">Log out</button></div>
+      </div>
+      <div class="teacher-filters">
+        <div class="calendar-grade">
+          <label for="batch">Grade level</label>
+          <select id="batch" disabled><option>Loading grade levels…</option></select>
+        </div>
+        <button id="add-assessment" class="primary" type="button" disabled>+ Add assessment</button>
+      </div>
+      <section class="card teacher-calendar" aria-labelledby="wk">
+        <div class="calendar-toolbar">
+          <div class="calendar-nav" role="group" aria-label="Calendar navigation">
+            <button id="prev" type="button" aria-label="Previous week">‹</button>
+            <button id="next" type="button" aria-label="Next week">›</button>
+            <button id="cur" type="button">This week</button>
+          </div>
+          <h2 id="wk" aria-live="polite"></h2>
+          <div class="teacher-approval">
+            <span id="status" class="pill" hidden></span>
+            <button id="approve" class="primary" type="button" hidden></button>
+          </div>
+        </div>
+        <p id="move-hint" class="teacher-move-hint" hidden>Drag cards between days or use Move to pick a new deadline.</p>
+        <div id="teacher-board" class="calendar-grid teacher-board" hidden></div>
+        <p id="empty" class="calendar-status" role="status" hidden>No grade levels available.</p>
+        <p id="notice" class="calendar-status" role="status" hidden></p>
+        <p id="calendar-error" class="calendar-status err" role="alert" hidden></p>
+        <section id="weekend-assessments" class="weekend-assessments" aria-labelledby="weekend-heading" hidden>
+          <h3 id="weekend-heading">Weekend deadlines</h3>
+          <p>Move these assessments to a weekday.</p>
+          <div id="weekend-cards" class="weekend-cards"></div>
+        </section>
+      </section>
+      <dialog id="editor" class="card teacher-dialog" aria-labelledby="editor-title">
+        <form id="form" class="form">
+          <h2 id="editor-title" class="wide">Add assessment</h2>
+          <label>Subject<select id="subj" required autofocus></select></label>
+          <label>Assessment type<select id="assessment-type"><option value="">Select type</option><option value="formative">Formative Assessment</option><option value="summative">Summative Assessment</option><option value="alternative">Alternative Assessment</option></select></label>
+          <label>Nature of implementation<select id="implementation"><option value="">Select implementation</option><option value="sync">Synchronous (in class)</option><option value="async">Asynchronous</option></select></label>
+          <label><span id="given-label">Date given</span><input id="given" type="date" aria-describedby="given-error" required><span id="given-error" class="err" aria-live="polite"></span></label>
+          <label>Deadline<input id="due" type="date" aria-describedby="due-error" required><span id="due-error" class="err" aria-live="polite"></span></label>
+          <label class="wide">Topic / Lesson<input id="topic" maxlength="255"></label>
+          <label class="wide">Assessment description<textarea id="desc" rows="3" required></textarea></label>
+          <label class="wide">Remarks<textarea id="remarks" rows="2" maxlength="4000"></textarea></label>
+          <div class="wide teacher-actions"><button class="primary" id="save">Add assessment</button><button type="button" id="cancel">Cancel</button></div>
+          <div class="wide err" id="ferr" role="alert"></div>
+        </form>
+      </dialog>
+      <dialog id="move-dialog" class="card teacher-dialog" aria-labelledby="move-title">
+        <form id="move-form" class="form">
+          <h2 id="move-title" class="wide">Move assessment</h2>
+          <label class="wide">New deadline<input id="move-date" type="date" aria-describedby="move-date-error" required autofocus><span id="move-date-error" class="err" aria-live="polite"></span></label>
+          <div class="wide teacher-actions"><button class="primary" id="move-save">Move assessment</button><button type="button" id="move-cancel">Cancel</button></div>
+          <div class="wide err" id="move-error" role="alert"></div>
+        </form>
+      </dialog>
+    </section>
+  </main>
+  <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
+  <script src="week.js?v=e2254f9e"></script>
+  <script src="teacher.js?v=3aef5515"></script>
+</body>
+</html>

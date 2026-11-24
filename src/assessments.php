@@ -20,6 +20,11 @@ function validDate($value)
     return checkdate($month, $day, $year);
 }
 
+function isWeekend($date)
+{
+    return (int) (new DateTimeImmutable($date))->format('N') >= 6;
+}
+
 function canManageBatch($user, $batch)
 {
     return $user['isAdmin'] || in_array($batch, $user['adviserOf'], true);
@@ -107,6 +112,26 @@ function saveAssessment($db, $user, $method, $input, $id)
             statement($db, 'DELETE FROM wat_assessments WHERE id=?', [$id]);
             return ['ok' => true];
         }
+        if ($method === 'PATCH') {
+            $due = $input['deadline'] ?? null;
+            if (!validDate($due)) {
+                reply(['error' => 'Choose a valid deadline.'], 400);
+            }
+            if (isWeekend($due)) {
+                reply(['error' => 'Choose a deadline from Monday to Friday.'], 400);
+            }
+            if ($due < $old['date_given']) {
+                reply(['error' => 'The deadline must be on or after the date given.'], 400);
+            }
+            if ($due !== $old['deadline']) {
+                $stmt = statement($db, 'UPDATE wat_assessments SET deadline=? WHERE id=? AND date_given<=? AND deadline=?',
+                    [$due, $id, $due, $old['deadline']]);
+                if (!$stmt->affected_rows) {
+                    reply(['error' => 'This assessment changed. Refresh the calendar and try again.'], 409);
+                }
+            }
+            return ['ok' => true];
+        }
     }
 
     $entry = $input + ($old ?? []);
@@ -126,6 +151,12 @@ function saveAssessment($db, $user, $method, $input, $id)
     $mode = $entry['implementation'] ?? '';
     $topic = trim($entry['topic'] ?? '');
     $remarks = trim($entry['remarks'] ?? '');
+    if (validDate($given) && $given !== ($old['date_given'] ?? null) && isWeekend($given)) {
+        reply(['error' => 'Choose a date given from Monday to Friday.'], 400);
+    }
+    if (validDate($due) && isWeekend($due)) {
+        reply(['error' => 'Choose a deadline from Monday to Friday.'], 400);
+    }
     if (!$batch || !validDate($given) || !validDate($due) ||
         $due < $given || $description === '' || preg_match('/.{256}/su', $topic) || preg_match('/.{4001}/su', $remarks) ||
         !in_array($type, ['', 'formative', 'summative', 'alternative'], true) ||
