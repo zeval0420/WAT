@@ -45,8 +45,9 @@ function dayData(date) {
 
 function assessmentCards(items) {
   return items.map((item) => `
-    <article class="calendar-assessment">
+    <article class="calendar-assessment"${assessmentColorStyle(item.assessment_type)}>
       <h4>${esc(item.subject)}</h4>
+      ${assessmentTypeTag(item.assessment_type)}
       <p>${esc(item.description)}</p>
       <small>Given ${fmt(item.date_given)}</small>
     </article>`).join('');
@@ -64,7 +65,8 @@ function renderDayDetails() {
 
 function renderMonthDay(date, items, pending, isToday) {
   const count = items.length;
-  const summaries = items.slice(0, 2).map((item) => `<span>${esc(item.subject)}</span>`).join('');
+  const summaries = items.slice(0, 2).map((item) =>
+    `<span class="calendar-subject"${assessmentColorStyle(item.assessment_type)}>${esc(item.subject)}</span>`).join('');
   const more = count > 2 ? `<span class="calendar-more">+${count - 2} more</span>` : '';
   const summary = pending ? 'Awaiting batch adviser approval' : `${count} assessment${count === 1 ? '' : 's'} due`;
   return `<button type="button" class="calendar-day${pending ? ' calendar-pending' : ''}"
@@ -120,11 +122,13 @@ async function load({ reset = false } = {}) {
   try {
     const grade = /^Grade (7|8|9|10|11|12)$/.exec(group)?.[1];
     const query = grade ? { grade } : { batch: group };
-    const results = await Promise.all(period.weekStarts.map((start) =>
-      api('week', 'GET', null, { ...query, start })));
+    const [results] = await Promise.all([
+      Promise.all(period.weekStarts.map((start) => api('week', 'GET', null, { ...query, start }))),
+      refreshAssessmentColors().catch(() => {}),
+    ]);
     if (version !== loadVersion) return;
 
-    const signature = JSON.stringify([today, results]);
+    const signature = JSON.stringify([today, results, assessmentColors]);
     if (signature !== loadedSignature) {
       loadedSignature = signature;
       weeks = new Map(results.map((week) => [week.start, week]));

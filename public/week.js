@@ -16,6 +16,28 @@ const fmt = (s) => new Date(s + 'T00:00:00').toLocaleDateString(undefined, { wee
 const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
+const assessmentTypes = {
+  formative: 'Formative Assessment',
+  summative: 'Summative Assessment',
+  alternative: 'Alternative Assessment',
+};
+let assessmentColors = {};
+let colorRequest = 0;
+async function refreshAssessmentColors() {
+  const request = ++colorRequest;
+  const colors = await api('assessmentColors');
+  if (request === colorRequest) assessmentColors = colors;
+  return colors;
+}
+function assessmentColorStyle(type) {
+  const color = Object.hasOwn(assessmentTypes, type) ? assessmentColors[type] : '';
+  return typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)
+    ? ` style="--assessment-color: ${color}"` : '';
+}
+function assessmentTypeTag(type) {
+  return Object.hasOwn(assessmentTypes, type)
+    ? `<span class="assessment-tag assessment-type-tag">${assessmentTypes[type]}</span>` : '';
+}
 function setGradeOptions(select, batches) {
   const grades = document.createElement('optgroup');
   grades.label = 'Grade levels';

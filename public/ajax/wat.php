@@ -2,6 +2,7 @@
 require __DIR__ . '/../../src/session.php';
 require __DIR__ . '/../../src/database.php';
 require __DIR__ . '/../../src/assessments.php';
+require __DIR__ . '/../../src/assessment_colors.php';
 
 $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -9,6 +10,7 @@ $routes = [
     'me' => ['GET'], 'logout' => ['POST'], 'batches' => ['GET'], 'week' => ['GET'],
     'subjects' => ['GET'], 'teacherBatches' => ['GET'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
     'assessment' => ['POST', 'PUT', 'PATCH', 'DELETE'],
+    'assessmentColors' => ['GET', 'PUT'],
 ];
 if (!is_string($action) || !isset($routes[$action])) {
     reply(['error' => 'Unknown action.'], 404);
@@ -18,7 +20,8 @@ if (!in_array($method, $routes[$action], true)) {
     reply(['error' => 'Method not allowed.'], 405);
 }
 try {
-    if ($action !== 'batches' && $action !== 'week') {
+    $public = in_array($action, ['batches', 'week'], true) || ($action === 'assessmentColors' && $method === 'GET');
+    if (!$public) {
         startWatSession();
         $csrf = $_SESSION['csrf_token'];
         if ($method !== 'GET') {
@@ -41,9 +44,15 @@ try {
         if ($action === 'me') {
             reply(['user' => $user, 'csrf_token' => $csrf]);
         }
+        if ($action === 'assessmentColors' && !$user['isAdmin']) {
+            reply(['error' => 'Only a WAT admin can edit assessment colors.'], 403);
+        }
     }
 
     $db = watDatabase();
+    if ($action === 'assessmentColors' && $method === 'GET') {
+        reply(assessmentColors($db));
+    }
     if ($action === 'batches') {
         reply(assessmentGroups($db, rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch')));
     }
@@ -86,6 +95,8 @@ try {
         }
     }
     switch ($action) {
+        case 'assessmentColors':
+            reply(saveAssessmentColors($db, $input));
         case 'approve':
             $batch = $input['batch'] ?? '';
             $date = $input['start'] ?? '';

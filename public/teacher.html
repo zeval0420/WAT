@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <title>WAT – Teacher</title>
-  <link rel="stylesheet" href="style.css?v=ace8e32f">
+  <link rel="stylesheet" href="style.css?v=959c8776">
 </head>
 <body>
   <header class="header">
@@ -18,7 +18,11 @@
     <section id="app" hidden>
       <div class="calendar-heading">
         <h1>Manage assessments</h1>
-        <div class="teacher-account"><span id="who" class="live"></span><button id="out" type="button">Log out</button></div>
+        <div class="teacher-account">
+          <span id="who" class="live"></span>
+          <button id="edit-colors" type="button" hidden>Assessment colors</button>
+          <button id="out" type="button">Log out</button>
+        </div>
       </div>
       <div class="teacher-filters">
         <div class="calendar-grade">
@@ -51,6 +55,15 @@
           <div id="weekend-cards" class="weekend-cards"></div>
         </section>
       </section>
+      <dialog id="color-dialog" class="card teacher-dialog" aria-labelledby="color-title">
+        <form id="color-form" class="form">
+          <h2 id="color-title" class="wide">Assessment colors</h2>
+          <p class="wide color-help">Colors apply to the teacher and student calendars for all grade levels.</p>
+          <div id="color-fields" class="wide"></div>
+          <div class="wide teacher-actions"><button class="primary" id="save-colors" disabled>Save colors</button><button type="button" id="cancel-colors">Cancel</button></div>
+          <div id="color-error" class="wide err" role="alert"></div>
+        </form>
+      </dialog>
       <dialog id="editor" class="card teacher-dialog" aria-labelledby="editor-title">
         <form id="form" class="form">
           <h2 id="editor-title" class="wide">Add assessment</h2>
@@ -77,7 +90,7 @@
     </section>
   </main>
   <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
-  <script src="week.js?v=e2254f9e"></script>
-  <script src="teacher.js?v=3aef5515"></script>
+  <script src="week.js?v=3e6270ab"></script>
+  <script src="teacher.js?v=e6854991"></script>
 </body>
 </html>

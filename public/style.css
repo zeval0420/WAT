@@ -95,9 +95,7 @@ tbody tr:hover{background:var(--tint)}
 td.acts{display:table-cell}td.acts button{margin-right:6px}
 
 .assessment-tag{display:inline-block;padding:2px 8px;border-radius:12px;background:var(--color-bg);color:var(--color-primary);white-space:normal}
-.assessment-tag--formative{background:#dcf3e5;color:#175b39}
-.assessment-tag--summative{background:#fff0c4;color:#684900}
-.assessment-tag--alternative{background:#dceafa;color:#1f5093}
+.assessment-type-tag{background:color-mix(in srgb, var(--assessment-color, var(--color-secondary)) 16%, white)}
 .assessment-tag--async{background:#fbe2df;color:#842b24}
 
 /* login page */
@@ -199,12 +197,16 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
   font-size: 12px;
 }
 .calendar-summaries > .calendar-more { background: transparent; color: var(--color-text-secondary); }
+.calendar-summaries > .calendar-subject {
+  border-inline-start: 3px solid var(--assessment-color, var(--color-secondary));
+  background: color-mix(in srgb, var(--assessment-color, var(--color-secondary)) 12%, white);
+}
 .calendar-count { display: none; }
 .calendar-assessment {
   padding: 8px;
-  border-left: 3px solid var(--color-secondary);
+  border-inline-start: 3px solid var(--assessment-color, var(--color-secondary));
   border-radius: 6px;
-  background: var(--color-bg);
+  background: color-mix(in srgb, var(--assessment-color, var(--color-secondary)) 8%, white);
   overflow-wrap: anywhere;
 }
 .calendar-assessment + .calendar-assessment { margin-top: 6px; }
@@ -284,6 +286,16 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
 .teacher-dialog :is(input, select, textarea) { min-width: 0; }
 .teacher-dialog .err:empty { display: none; }
 #move-dialog { max-width: 360px; }
+#color-dialog { max-width: 440px; }
+.color-help { margin: 0; color: var(--color-text-secondary); }
+#color-fields label {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 6px 0;
+}
+#color-fields input { width: 64px; height: 38px; padding: 3px; cursor: pointer; }
 
 @media (max-width: 850px) {
   .teacher-board { grid-template-columns: 1fr; }

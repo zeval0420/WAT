@@ -8,7 +8,10 @@ const weekendCards = $('weekend-cards');
 const editor = $('editor');
 const form = $('form');
 const moveDialog = $('move-dialog');
-const types = { formative: 'Formative Assessment', summative: 'Summative Assessment', alternative: 'Alternative Assessment' };
+const colorDialog = $('color-dialog');
+const colorForm = $('color-form');
+let openedColors = {};
+let colorDialogVersion = 0;
 const modes = { sync: 'Synchronous', async: 'Asynchronous' };
 const isWeekend = (date) => [0, 6].includes(new Date(date + 'T00:00:00').getDay());
 
@@ -26,9 +29,9 @@ function tag(value, labels) {
 function assessmentCard(item, legacy = false) {
   const id = esc(item.id);
   const subject = esc(item.subject);
-  return `<article class="calendar-assessment teacher-assessment" draggable="true" data-assessment="${id}">
+  return `<article class="calendar-assessment teacher-assessment" draggable="true" data-assessment="${id}"${assessmentColorStyle(item.assessment_type)}>
     <h4>${subject}</h4>
-    <div class="teacher-tags">${tag(item.assessment_type, types)}${tag(item.implementation, modes)}</div>
+    <div class="teacher-tags">${assessmentTypeTag(item.assessment_type)}${tag(item.implementation, modes)}</div>
     ${item.topic ? `<p class="teacher-topic">${esc(item.topic)}</p>` : ''}
     <p>${esc(item.description)}</p>
     ${item.remarks ? `<p class="teacher-remarks">Remarks: ${esc(item.remarks)}</p>` : ''}
@@ -44,7 +47,7 @@ function assessmentCard(item, legacy = false) {
 
 function renderBoard() {
   const today = currentSchoolDate();
-  const signature = JSON.stringify([start, sel.value, today, items]);
+  const signature = JSON.stringify([start, sel.value, today, items, assessmentColors]);
   if (rendered === signature) return;
   rendered = signature;
   const active = document.activeElement;
@@ -74,7 +77,10 @@ async function load() {
   if (!sel.value || dragged) return;
   const version = ++loadVersion;
   try {
-    const week = await api('teacherWeek', 'GET', null, { batch: sel.value, start });
+    const [week] = await Promise.all([
+      api('teacherWeek', 'GET', null, { batch: sel.value, start }),
+      refreshAssessmentColors().catch(() => {}),
+    ]);
     if (version !== loadVersion || dragged) return;
     items = week.items;
     approved = week.approved;
@@ -109,6 +115,7 @@ async function boot() {
   if (!user) { location.replace('login.html'); return; }
   $('app').hidden = false;
   $('who').textContent = user.name;
+  $('edit-colors').hidden = !user.isAdmin;
   const { batches, adviserOf } = await api('teacherBatches');
   setGradeOptions(sel, batches);
   if (adviserOf[0]) sel.value = adviserOf[0];
@@ -372,5 +379,51 @@ $('move-form').onsubmit = (event) => {
   event.preventDefault();
   $('move-date').oninput();
   if ($('move-form').reportValidity()) moveAssessment(moving, $('move-date').value, true);
+};
+
+$('color-fields').innerHTML = Object.entries(assessmentTypes).map(([type, label]) =>
+  `<label>${label}<input type="color" name="${type}" disabled></label>`).join('');
+$('edit-colors').onclick = async () => {
+  const version = ++colorDialogVersion;
+  $('color-error').textContent = '';
+  $('save-colors').disabled = true;
+  for (const type of Object.keys(assessmentTypes)) colorForm.elements[type].disabled = true;
+  colorDialog.showModal();
+  try {
+    const colors = await refreshAssessmentColors();
+    if (!colorDialog.open || version !== colorDialogVersion) return;
+    for (const type of Object.keys(assessmentTypes)) {
+      const field = colorForm.elements[type];
+      field.value = colors[type];
+      field.disabled = false;
+    }
+    openedColors = Object.fromEntries(new FormData(colorForm));
+    $('save-colors').disabled = false;
+  } catch (error) {
+    if (colorDialog.open && version === colorDialogVersion) $('color-error').textContent = error.message;
+  }
+};
+$('cancel-colors').onclick = () => colorDialog.close();
+colorDialog.oncancel = (event) => { if ($('cancel-colors').disabled) event.preventDefault(); };
+colorForm.onsubmit = async (event) => {
+  event.preventDefault();
+  if ($('save-colors').disabled) return;
+  const changed = Object.fromEntries([...new FormData(colorForm)]
+    .filter(([type, value]) => value !== openedColors[type]));
+  if (!Object.keys(changed).length) { colorDialog.close(); return; }
+  $('color-error').textContent = '';
+  $('save-colors').disabled = $('cancel-colors').disabled = true;
+  try {
+    const colors = await api('assessmentColors', 'PUT', changed);
+    ++colorRequest;
+    assessmentColors = colors;
+    renderBoard();
+    message('notice', 'Assessment colors saved.');
+    colorDialog.close();
+  } catch (error) {
+    $('color-error').textContent = error.message;
+  } finally {
+    $('save-colors').disabled = $('cancel-colors').disabled = false;
+  }
 };
 boot().catch((error) => { $('app').hidden = false; message('calendar-error', error.message); });

@@ -76,7 +76,7 @@ function weekData($db, $user, $batch, $date)
         });
     }
     if ($user === null) {
-        $publicFields = array_flip(['id', 'subject', 'date_given', 'deadline', 'description']);
+        $publicFields = array_flip(['id', 'subject', 'date_given', 'deadline', 'description', 'assessment_type']);
         $items = array_map(static function ($item) use ($publicFields) { return array_intersect_key($item, $publicFields); }, $items);
         return $week + compact('items');
     }
