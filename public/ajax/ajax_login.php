@@ -27,7 +27,7 @@ $isBuiltInAdmin = $identity === WAT_BUILT_IN_ADMIN;
 $account = null;
 if ($isBuiltInAdmin) {
     $validPassword = strpos($password, "\0") === false
-        && password_verify($password, '$2y$12$tiwZxLeols3TMK//qrIrC.XXNdwstNHdsPsSNsmF/RXicRyDPVqWC');
+        && password_verify($password, WAT_BUILT_IN_ADMIN_PASSWORD_HASH);
 } else {
     $email = strpos($identity, '@') === false ? $identity . '@irc.pshs.edu.ph' : $identity;
     try {
@@ -69,7 +69,7 @@ if ($isBuiltInAdmin) {
 }
 session_regenerate_id(true);
 unset($_SESSION['login_attempts']);
-$_SESSION['employeeID'] = $isBuiltInAdmin ? WAT_BUILT_IN_ADMIN : $account['employeeID'];
+$_SESSION['employeeID'] = $isBuiltInAdmin ? WAT_BUILT_IN_ADMIN_ID : $account['employeeID'];
 $_SESSION['email'] = $account['email'] ?? null;
 $_SESSION['username'] = $name;
 $_SESSION['role'] = $role;

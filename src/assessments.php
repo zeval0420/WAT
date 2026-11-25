@@ -66,7 +66,7 @@ function assessmentRow($db, $id)
 
 function formatAssessments($db, $items, $user, $batch = null, $pending = [])
 {
-    $names = [WAT_BUILT_IN_ADMIN => WAT_BUILT_IN_ADMIN, 'admin.controller' => 'admin.controller'];
+    $names = [WAT_BUILT_IN_ADMIN_ID => WAT_BUILT_IN_ADMIN, 'admin.controller' => 'admin.controller'];
     if ($user !== null) {
         $ids = array_values(array_diff(array_unique(array_column($items, 'teacher_id')), array_keys($names)));
         if ($ids) {

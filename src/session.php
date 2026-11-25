@@ -1,5 +1,8 @@
 <?php
-const WAT_BUILT_IN_ADMIN = 'batch_adviser';
+const WAT_BUILT_IN_ADMIN = 'wat.admin';
+const WAT_BUILT_IN_ADMIN_PASSWORD_HASH = '$2y$12$IubXb3xLMfRpXOTmeNMJP.u8S4y0qywvfJhgZE0uPb8pzp0xQAv0y';
+// Keep ownership of records created by the built-in account across username changes.
+const WAT_BUILT_IN_ADMIN_ID = 'batch_adviser';
 
 // Keep WAT's session separate from other PHP applications on the same host.
 function startWatSession()
@@ -13,7 +16,9 @@ function startWatSession()
         'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax',
     ]);
     session_start();
-    if (isset($_SESSION['last_activity']) && time() - $_SESSION['last_activity'] > 28800) {
+    $inactive = isset($_SESSION['last_activity']) && time() - $_SESSION['last_activity'] > 28800;
+    $oldAdminLogin = ($_SESSION['isBuiltInAdmin'] ?? false) && ($_SESSION['username'] ?? null) !== WAT_BUILT_IN_ADMIN;
+    if ($inactive || $oldAdminLogin) {
         $_SESSION = [];
         session_regenerate_id(true);
     }
