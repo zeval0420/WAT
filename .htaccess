@@ -1,2 +1,3 @@
 RewriteEngine On
+RewriteRule ^config(?:/|$) - [F,L,NC]
 RewriteRule ^$ public/ [R=302,L]

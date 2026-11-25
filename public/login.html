@@ -33,8 +33,13 @@ function show(fields, msg) {
 }
 for (const k in inputs) inputs[k].addEventListener('input', () => { inputs[k].classList.remove('bad'); inputs[k].removeAttribute('aria-invalid'); errs[k].textContent = ''; banner.hidden = true; });
 $('show').onclick = (e) => { const t = $('p').type === 'password'; $('p').type = t ? 'text' : 'password'; e.target.textContent = t ? 'Hide' : 'Show'; e.target.setAttribute('aria-pressed', t); };
+const teacherPage = new URL('teacher.html', window.location.href);
+const loginQuery = new URLSearchParams(window.location.search);
+for (const field of ['batch', 'start']) {
+  if (loginQuery.has(field)) teacherPage.searchParams.set(field, loginQuery.get(field));
+}
 const session = api('me');
-session.then(({ user }) => { if (user) location.replace('teacher.html'); }).catch(err => show({}, err.message));
+session.then(({ user }) => { if (user) location.replace(teacherPage); }).catch(err => show({}, err.message));
 form.onsubmit = async (e) => {
   e.preventDefault();
   const username = $('u').value.trim(), password = $('p').value, f = {};
@@ -55,7 +60,7 @@ form.onsubmit = async (e) => {
     const result = (await response.text()).trim();
     if (['teacher', 'admin', 'requester'].includes(result)) {
       go.textContent = 'Success – redirecting…';
-      location.replace('teacher.html');
+      location.replace(teacherPage);
       return;
     }
     if (result === 'invalid_password') show({ password: 'Incorrect password.' });

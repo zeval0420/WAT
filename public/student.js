@@ -5,33 +5,22 @@ let weeks = new Map();
 let loadedSignature = '';
 let selectedGrade = '';
 let availableGrades = [];
+let subjectPreferences = null;
+let subjectDialogVersion = 0;
+const subjectCatalogByGrade = new Map();
 const gradeDialog = $('grade-dialog');
+const subjectDialog = $('subject-dialog');
 const calendar = $('calendar');
 const status = $('calendar-status');
 const details = $('day-details');
-const asDate = (date) => new Date(date + 'T00:00:00');
 const monthFormat = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
 const weekFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const weekdayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-const approvalMessage = 'Awaiting batch adviser approval.';
-
-function monthStart(date, offset = 0) {
-  const first = asDate(date.slice(0, 7) + '-01');
-  first.setMonth(first.getMonth() + offset);
-  return iso(first);
-}
-
-function calendarPeriod() {
-  const start = view === 'month' ? monthStart(cursor) : mondayOf(cursor);
-  const end = view === 'month' ? addDays(monthStart(cursor, 1), -1) : addDays(start, 6);
-  const weekStarts = [];
-  const dates = [];
-  for (let week = mondayOf(start); week <= end; week = addDays(week, 7)) {
-    weekStarts.push(week);
-    for (let day = 0; day < 7; day++) dates.push(addDays(week, day));
-  }
-  return { start, end, weekStarts, dates };
-}
+const approvalMessage = 'This week hasn’t been published.';
+const syncStudentJump = bindCalendarJump($('student-jump'), (date) => {
+  cursor = date;
+  load({ reset: true });
+});
 
 function showMessage(message) {
   if (status.textContent !== message) status.textContent = message;
@@ -42,7 +31,24 @@ function dayData(date) {
   const week = weeks.get(mondayOf(date));
   if (!week) return { items: [], pending: false };
   if (!week.visibleToStudents) return { items: [], pending: true };
-  return { items: week.items.filter((item) => item.deadline === date), pending: false };
+  return { items: week.items.filter((item) => item.deadline === date && matchesSubjects(item)), pending: false };
+}
+
+function subjectKey(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function matchesSubjects(item) {
+  if (subjectPreferences?.mode !== 'selected') return true;
+  const catalog = subjectCatalogByGrade.get(selectedGrade);
+  if (!catalog) return true;
+  const key = subjectKey(item.subject);
+  const course = catalog.get(key);
+  const isCore = !course || (course.core && (!course.coreChoice || subjectPreferences.core.includes(key)));
+  const isElective = subjectPreferences.elective.includes(key);
+  if (item.audience === 'core') return isCore;
+  if (item.audience === 'elective') return isElective;
+  return isCore || isElective;
 }
 
 function assessmentCards(items) {
@@ -71,7 +77,7 @@ function renderMonthDay(date, items, pending, isToday) {
   const summaries = items.slice(0, 2).map((item) =>
     `<span class="calendar-subject"${assessmentColorStyle(item.assessment_type)}>${esc(item.subject)}</span>`).join('');
   const more = count > 2 ? `<span class="calendar-more">+${count - 2} more</span>` : '';
-  const summary = pending ? 'Awaiting batch adviser approval' : `${count} assessment${count === 1 ? '' : 's'} due`;
+  const summary = pending ? 'Week unpublished' : `${count} assessment${count === 1 ? '' : 's'} due`;
   return `<button type="button" class="calendar-day${pending ? ' calendar-pending' : ''}"
       data-date="${date}" aria-controls="day-details" aria-pressed="${date === cursor}" ${isToday ? 'aria-current="date"' : ''}
       aria-label="${esc(`${fmt(date)}, ${summary}`)}">
@@ -107,7 +113,7 @@ function renderCalendar(period, today) {
 }
 
 async function load({ reset = false } = {}) {
-  const period = calendarPeriod();
+  const period = calendarPeriod(cursor, view);
   const today = currentSchoolDate();
   const group = selectedGrade;
   const version = ++loadVersion;
@@ -117,6 +123,7 @@ async function load({ reset = false } = {}) {
     $('period').textContent = view === 'month'
       ? monthFormat.format(asDate(period.start))
       : weekFormat.formatRange(asDate(period.start), asDate(period.end));
+    syncStudentJump(cursor, view);
     renderCalendar(period, today);
     if (group) showMessage('Loading assessments…');
   }
@@ -137,12 +144,7 @@ async function load({ reset = false } = {}) {
       weeks = new Map(results.map((week) => [week.start, week]));
       renderCalendar(period, today);
     }
-    const pending = results.filter((week) => !week.visibleToStudents).length;
-    const hasItems = results.some((week) => week.visibleToStudents &&
-      week.items.some((item) => item.deadline >= period.start && item.deadline <= period.end));
-    let message = hasItems ? '' : `No assessments this ${view}.`;
-    if (pending) message = pending === results.length ? approvalMessage : 'Some weeks are awaiting batch adviser approval.';
-    showMessage(message);
+    showWeekStatus(period, results);
   } catch (error) {
     if (version !== loadVersion) return;
     if (weeks.size) {
@@ -152,6 +154,19 @@ async function load({ reset = false } = {}) {
     }
     showMessage(error.message);
   }
+}
+
+function showWeekStatus(period, results) {
+  if (!results.length) return;
+  const pending = results.filter((week) => !week.visibleToStudents).length;
+  const hasItems = results.some((week) => week.visibleToStudents && week.items.some((item) =>
+    item.deadline >= period.start && item.deadline <= period.end && matchesSubjects(item)));
+  let message = '';
+  if (pending === results.length) message = view === 'week' ? approvalMessage : 'None of these weeks have been published.';
+  else if (pending) message = 'Some weeks haven’t been published.';
+  else if (!hasItems) message = subjectPreferences?.mode === 'selected'
+    ? `No assessments for your subjects this ${view}.` : `No assessments this ${view}.`;
+  showMessage(message);
 }
 
 function movePeriod(offset) {
@@ -175,6 +190,7 @@ calendar.onclick = (event) => {
   calendar.querySelector('[aria-pressed="true"]')?.setAttribute('aria-pressed', 'false');
   day.setAttribute('aria-pressed', 'true');
   cursor = day.dataset.date;
+  syncStudentJump(cursor, view);
   renderDayDetails();
 };
 $('prev').onclick = () => movePeriod(-1);
@@ -205,13 +221,110 @@ function chooseGrade(grade) {
   if (gradeDialog.open) gradeDialog.close();
   if (selectedGrade === grade) return;
   selectedGrade = grade;
+  subjectPreferences = savedSubjectPreferences(grade);
   try { localStorage.setItem('wat_batch', grade); } catch {}
   $('active-grade').textContent = grade;
   $('grade-start').hidden = true;
   $('student-calendar-view').hidden = false;
+  updateSubjectButton();
   load({ reset: true });
   if (firstChoice) $('calendar-title').focus();
+  if (!subjectPreferences) openSubjects();
+  else if (subjectPreferences.mode === 'selected') loadSubjectCatalog(grade).catch(() => {});
 }
+
+function subjectPreferenceKey(grade) {
+  return `wat_subjects:${grade}`;
+}
+
+function savedSubjectPreferences(grade) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(subjectPreferenceKey(grade)));
+    if (saved?.mode === 'all') return { mode: 'all' };
+    if (saved?.mode === 'selected' && Array.isArray(saved.core) && Array.isArray(saved.elective)
+        && [...saved.core, ...saved.elective].every((key) => typeof key === 'string')) return saved;
+  } catch {}
+  return null;
+}
+
+function updateSubjectButton() {
+  const filtered = subjectPreferences?.mode === 'selected' && subjectCatalogByGrade.has(selectedGrade);
+  $('change-subjects').textContent = filtered ? 'Subjects · Mine' : 'Subjects · All';
+}
+
+function refreshSubjects() {
+  updateSubjectButton();
+  const period = calendarPeriod(cursor, view);
+  renderCalendar(period, currentSchoolDate());
+  showWeekStatus(period, [...weeks.values()]);
+}
+
+async function loadSubjectCatalog(grade) {
+  if (subjectCatalogByGrade.has(grade)) return subjectCatalogByGrade.get(grade);
+  const subjects = await api('subjects', 'GET', null, { batch: grade });
+  const catalog = new Map(subjects.map((course) => [subjectKey(course.description), course]));
+  subjectCatalogByGrade.set(grade, catalog);
+  if (selectedGrade === grade && subjectPreferences?.mode === 'selected') refreshSubjects();
+  return catalog;
+}
+
+function subjectFieldset(legend, name, subjects) {
+  if (!subjects.length) return '';
+  const selected = subjectPreferences?.[name] ?? [];
+  return `<fieldset class="subject-options">
+    <legend>${legend}</legend>
+    ${subjects.map((course) => {
+      const key = subjectKey(course.description);
+      const title = course.title && course.title !== course.description ? `<small>${esc(course.title)}</small>` : '';
+      return `<label><input type="checkbox" name="${name}" value="${esc(key)}"${selected.includes(key) ? ' checked' : ''}>
+        <span>${esc(course.description)}${title}</span></label>`;
+    }).join('')}
+  </fieldset>`;
+}
+
+async function openSubjects() {
+  const grade = selectedGrade;
+  const version = ++subjectDialogVersion;
+  const options = $('subject-options');
+  const dialogStatus = $('subject-status');
+  const save = $('save-subjects');
+  options.replaceChildren();
+  dialogStatus.textContent = 'Loading subjects…';
+  save.disabled = true;
+  if (!subjectDialog.open) subjectDialog.showModal();
+  try {
+    const catalog = await loadSubjectCatalog(grade);
+    if (!subjectDialog.open || selectedGrade !== grade || version !== subjectDialogVersion) return;
+    const courses = [...catalog.values()];
+    const core = courses.filter((course) => course.coreChoice);
+    const electives = courses.filter((course) => course.elective);
+    options.innerHTML = subjectFieldset('Science Core', 'core', core)
+      + subjectFieldset('Electives', 'elective', electives);
+    save.disabled = !core.length && !electives.length;
+    dialogStatus.textContent = save.disabled
+      ? 'This grade has no selectable subjects.' : 'Required subjects are included automatically.';
+  } catch (error) {
+    if (subjectDialog.open && selectedGrade === grade && version === subjectDialogVersion) {
+      dialogStatus.textContent = error.message;
+    }
+  }
+}
+
+function applySubjectPreferences(preferences) {
+  subjectPreferences = preferences;
+  try { localStorage.setItem(subjectPreferenceKey(selectedGrade), JSON.stringify(preferences)); } catch {}
+  subjectDialog.close();
+  refreshSubjects();
+}
+
+$('change-subjects').onclick = openSubjects;
+$('show-all-subjects').onclick = () => applySubjectPreferences({ mode: 'all' });
+$('subject-form').onsubmit = (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  applySubjectPreferences({ mode: 'selected', core: form.getAll('core'), elective: form.getAll('elective') });
+};
+dismissOnBackdrop(subjectDialog);
 
 for (const container of [$('grade-choices'), $('dialog-grade-choices')]) {
   container.addEventListener('click', (event) => {
@@ -242,6 +355,13 @@ async function loadGrades() {
     try { recentGrade = localStorage.getItem('wat_batch'); } catch {}
     renderGradeChoices($('grade-choices'), recentGrade);
     status.hidden = true;
+    const query = new URLSearchParams(location.search);
+    const batch = query.get('batch');
+    if (availableGrades.includes(batch)) {
+      const date = query.get('start');
+      if (validCalendarDate(date)) cursor = mondayOf(date);
+      chooseGrade(batch);
+    }
   } catch (error) {
     status.textContent = error.message;
     $('retry-grades').hidden = false;

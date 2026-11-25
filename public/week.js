@@ -2,6 +2,61 @@
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
 const mondayOf = (s) => { const d = new Date(s + 'T00:00:00'); return addDays(s, -((d.getDay() + 6) % 7)); };
+const asDate = (date) => new Date(date + 'T00:00:00');
+function monthStart(date, offset = 0) {
+  const first = asDate(date.slice(0, 7) + '-01');
+  first.setMonth(first.getMonth() + offset);
+  return iso(first);
+}
+function calendarPeriod(date, view) {
+  const start = view === 'month' ? monthStart(date) : mondayOf(date);
+  const end = view === 'month' ? addDays(monthStart(date, 1), -1) : addDays(start, 6);
+  const weekStarts = [];
+  const dates = [];
+  for (let week = mondayOf(start); week <= end; week = addDays(week, 7)) {
+    weekStarts.push(week);
+    for (let day = 0; day < 7; day++) dates.push(addDays(week, day));
+  }
+  return { start, end, weekStarts, dates };
+}
+function validCalendarDate(date) {
+  return typeof date === 'string' && /^[1-9]\d{3}-\d{2}-\d{2}$/.test(date) && iso(asDate(date)) === date;
+}
+function calendarWeekValue(date) {
+  const monday = mondayOf(date);
+  const year = addDays(monday, 3).slice(0, 4);
+  const first = mondayOf(year + '-01-04');
+  const number = (Date.parse(monday) - Date.parse(first)) / (7 * 86400000) + 1;
+  return `${year}-W${String(number).padStart(2, '0')}`;
+}
+function bindCalendarJump(wrapper, onJump) {
+  const input = wrapper.querySelector('input');
+  let currentDate;
+  let currentView;
+  input.addEventListener('change', () => {
+    let date = input.value;
+    if (input.type === 'week' && /^\d{4}-W\d{2}$/.test(date)) {
+      const [year, number] = date.split('-W');
+      date = addDays(mondayOf(year + '-01-04'), (Number(number) - 1) * 7);
+    } else if (input.type === 'month') {
+      date += '-01';
+    }
+    if (validCalendarDate(date)) onJump(currentView === 'month' ? monthStart(date) : mondayOf(date));
+    else update(currentDate, currentView);
+  });
+  function update(date, view) {
+    currentDate = date;
+    currentView = view;
+    if (input.type !== view) {
+      input.type = view;
+      if (input.type !== view) input.type = 'date';
+    }
+    input.setAttribute('aria-label', `Jump to ${view}`);
+    input.value = input.type === 'week' ? calendarWeekValue(date)
+      : input.type === 'month' ? date.slice(0, 7) : date;
+  }
+  return update;
+}
 const schoolDate = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
 });
@@ -37,8 +92,10 @@ function dismissOnBackdrop(dialog) {
 }
 const assessmentTypes = {
   formative: 'Formative Assessment',
-  summative: 'Summative Assessment',
   alternative: 'Alternative Assessment',
+  summative: 'Summative Assessment',
+  long_test: 'Long Test',
+  defense: 'Defense',
 };
 let assessmentColors = {};
 let colorRequest = 0;

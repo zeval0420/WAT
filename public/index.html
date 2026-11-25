@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <title>WAT – Assessment Calendar</title>
-  <link rel="stylesheet" href="style.css?v=ad1a58ce">
+  <link rel="stylesheet" href="style.css?v=subject-calendar">
 </head>
 <body>
   <header class="header">
@@ -27,6 +27,7 @@
         <div class="calendar-grade">
           <span id="active-grade"></span>
           <button id="change-grade" type="button" aria-haspopup="dialog">Change grade</button>
+          <button id="change-subjects" type="button" aria-haspopup="dialog">Subjects · All</button>
         </div>
       </div>
       <section class="card student-calendar" aria-labelledby="period">
@@ -41,6 +42,7 @@
             <button id="week-view" type="button" aria-pressed="true">Week</button>
             <button id="month-view" type="button" aria-pressed="false">Month</button>
           </div>
+          <label id="student-jump" class="calendar-jump">Jump to <input type="date" aria-label="Jump to week"></label>
         </div>
         <div id="calendar" class="calendar-grid"></div>
         <p id="calendar-status" class="calendar-status" role="status" hidden></p>
@@ -55,9 +57,20 @@
       <div id="dialog-grade-choices"></div>
       <button id="cancel-grade" type="button">Cancel</button>
     </dialog>
+    <dialog id="subject-dialog" class="card app-dialog grade-dialog" aria-labelledby="subject-title">
+      <h2 id="subject-title">Choose your subjects</h2>
+      <p id="subject-status" role="status"></p>
+      <form id="subject-form">
+        <div id="subject-options"></div>
+        <div class="subject-actions">
+          <button id="show-all-subjects" type="button">Show all subjects</button>
+          <button id="save-subjects" class="primary" type="submit" disabled>Show my subjects</button>
+        </div>
+      </form>
+    </dialog>
   </main>
   <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
-  <script src="week.js?v=461cc74a"></script>
-  <script src="student.js?v=71dfc44a"></script>
+  <script src="week.js?v=subject-calendar"></script>
+  <script src="student.js?v=subject-calendar"></script>
 </body>
 </html>

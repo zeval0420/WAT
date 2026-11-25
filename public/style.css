@@ -157,6 +157,26 @@ input.bad{border-color:var(--color-danger);box-shadow:0 0 0 3px rgba(220,53,69,.
 .calendar-modes { justify-self: end; gap: 2px; padding: 3px; border-radius: var(--radius-btn); background: var(--color-bg); }
 .calendar-modes button { border: 0; background: transparent; box-shadow: none; }
 .calendar-modes button[aria-pressed="true"] { color: #fff; background: var(--color-primary-mid); }
+.calendar-jump { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); font-weight: 600; }
+.calendar-jump input { min-height: 36px; max-width: 100%; padding: 5px 8px; }
+#student-jump { grid-column: 1 / -1; justify-self: center; }
+.student-main .calendar-grade { flex-wrap: wrap; }
+#change-subjects { min-height: 38px; }
+#subject-status { margin: 0 0 var(--space-md); color: var(--color-text-secondary); }
+.subject-options {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+.subject-options legend { font-weight: 700; padding: 0 var(--space-xs); }
+.subject-options label { display: flex; align-items: flex-start; gap: var(--space-sm); cursor: pointer; }
+.subject-options input { flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--color-primary-mid); }
+.subject-options input:focus-visible { outline: 2px solid var(--color-primary-mid); outline-offset: 2px; }
+.subject-options small { display: block; color: var(--color-text-secondary); }
+.subject-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-sm); }
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -260,6 +280,55 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
   }
 }
 
+/* Teacher assessment views and workload */
+.teacher-main :is(.teacher-filters, .teacher-month, .teacher-dialog label)[hidden] { display: none; }
+.teacher-tabs, .teacher-period-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.teacher-tabs { margin-bottom: var(--space-md); }
+.teacher-tabs button[aria-pressed="true"] { color: #fff; background: var(--color-primary-mid); }
+.teacher-period-tools {
+  justify-content: space-between;
+  padding: 8px var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+.teacher-period-tools .calendar-jump { margin: 0; }
+.teacher-main .teacher-assessment { cursor: default; }
+.teacher-main .teacher-assessment[draggable="true"] { cursor: grab; }
+.teacher-readonly { display: block; margin-top: 3px; }
+.teacher-workload { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; font-size: 11px; }
+.teacher-workload span {
+  border-radius: var(--radius-btn);
+  padding: 2px 6px;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+}
+.teacher-workload .teacher-over-limit { color: var(--color-danger-text); background: #fbe2df; font-weight: 700; }
+.assessment-tag--high { background: #f8ebd6; color: #744500; }
+.assessment-tag--low { background: #dfeee7; color: #21523b; }
+.teacher-summary h2 { margin: var(--space-md); font-size: 1.15rem; }
+.teacher-summary-date { white-space: nowrap; }
+.editor-workload > h3 { margin: 0 0 8px; font-size: .95rem; }
+.editor-workload section + section { margin-top: 8px; }
+.editor-workload h4, .editor-workload h5 { margin: 0 0 4px; }
+.editor-workload-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.editor-workload-days > div {
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  overflow-wrap: anywhere;
+}
+.editor-workload-days > .editor-workload-selected { border-color: var(--color-primary-mid); background: var(--tint); }
+.editor-workload-days ul { list-style: none; padding: 0; margin: 0; font-size: 11px; }
+
+@media (max-width: 640px) {
+  .teacher-period-tools { padding: 8px 12px; }
+  .editor-workload-days { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }
+}
+
 /* Teacher calendar */
 .teacher-main { max-width: 1400px; }
 .teacher-account, .teacher-filters, .teacher-approval, .teacher-day-heading, .teacher-actions {
@@ -348,3 +417,17 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
   .teacher-dialog .form { padding: var(--space-md); }
   .teacher-assessment .teacher-icon-button { width: 44px; min-height: 44px; }
 }
+
+.adviser-panel { padding: 1rem; }
+.adviser-panel h3, .adviser-panel h4, .adviser-panel h5 { margin: 0 0 .65rem; }
+.adviser-panel p, .wat-admin-content p { margin: .5rem 0; }
+.adviser-limits, .adviser-buttons { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
+.adviser-limits label { display: grid; gap: .25rem; max-width: 9rem; }
+.adviser-change { border-top: 1px solid #d9e2ec; padding: .75rem 0; }
+.adviser-comparison { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 1rem; }
+.adviser-comparison dl { margin: 0 0 .75rem; }
+.adviser-comparison dt { font-weight: 600; }
+.adviser-comparison dd { margin: 0 0 .3rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.wat-admin-content { display: grid; gap: 1rem; }
+.wat-admin-content h2, .wat-admin-content h3 { margin: 0; }
+.wat-admin-content form[hidden] { display: none; }

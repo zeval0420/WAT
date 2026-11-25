@@ -1,0 +1,7 @@
+{
+    "name": "pshs-irc/wat",
+    "description": "Weekly Assessment Tracker",
+    "require": {
+        "phpmailer/phpmailer": "^7.0"
+    }
+}

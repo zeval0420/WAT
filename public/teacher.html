@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="only light">
   <title>WAT – Teacher</title>
-  <link rel="stylesheet" href="style.css?v=ad1a58ce">
+  <link rel="stylesheet" href="style.css?v=wat-workflow-1">
 </head>
 <body>
   <header class="header">
@@ -21,17 +21,22 @@
         <div class="teacher-account">
           <span id="who" class="live"></span>
           <button id="edit-colors" type="button" hidden>Assessment colors</button>
+          <span id="root-controls" hidden></span>
           <button id="out" type="button">Log out</button>
         </div>
       </div>
-      <div class="teacher-filters">
+      <nav class="teacher-tabs" aria-label="Assessment views">
+        <button id="calendar-tab" type="button" aria-pressed="true" aria-controls="teacher-calendar">Calendar</button>
+        <button id="summary-tab" type="button" aria-pressed="false" aria-controls="teacher-summary">My assessments</button>
+      </nav>
+      <div id="teacher-filters" class="teacher-filters">
         <div class="calendar-grade">
           <label for="batch">Grade level</label>
           <select id="batch" disabled><option>Loading grade levels…</option></select>
         </div>
         <button id="add-assessment" class="primary" type="button" disabled>+ Add assessment</button>
       </div>
-      <section class="card teacher-calendar" aria-labelledby="wk">
+      <section id="teacher-calendar" class="card teacher-calendar" aria-labelledby="wk">
         <div class="calendar-toolbar">
           <div class="calendar-nav" role="group" aria-label="Calendar navigation">
             <button id="prev" type="button" aria-label="Previous week">‹</button>
@@ -39,13 +44,22 @@
             <button id="cur" type="button">This week</button>
           </div>
           <h2 id="wk" aria-live="polite"></h2>
+          <div class="calendar-modes" role="group" aria-label="Calendar view">
+            <button id="teacher-week-view" type="button" aria-pressed="true">Week</button>
+            <button id="teacher-month-view" type="button" aria-pressed="false">Month</button>
+          </div>
+        </div>
+        <div class="teacher-period-tools">
+          <label class="calendar-jump" id="teacher-jump">Jump to <input type="date" aria-label="Jump to week"></label>
           <div class="teacher-approval">
             <span id="status" class="pill" hidden></span>
             <button id="approve" class="primary" type="button" hidden></button>
           </div>
         </div>
+        <div id="adviser-controls" hidden></div>
         <p id="move-hint" class="teacher-move-hint" hidden>Drag cards between days or use Move to pick a new deadline.</p>
         <div id="teacher-board" class="calendar-grid teacher-board" hidden></div>
+        <div id="teacher-month" class="calendar-grid teacher-month" data-view="month" hidden></div>
         <p id="empty" class="calendar-status" role="status" hidden>No grade levels available.</p>
         <p id="notice" class="calendar-status" role="status" hidden></p>
         <p id="calendar-error" class="calendar-status err" role="alert" hidden></p>
@@ -54,6 +68,14 @@
           <p>Move these assessments to a weekday.</p>
           <div id="weekend-cards" class="weekend-cards"></div>
         </section>
+      </section>
+      <section id="teacher-summary" class="card teacher-summary" aria-labelledby="teacher-summary-title" hidden>
+        <h2 id="teacher-summary-title">My assessments</h2>
+        <p id="teacher-summary-status" class="calendar-status" role="status"></p>
+        <table id="teacher-summary-table" hidden>
+          <thead><tr><th scope="col">Deadline</th><th scope="col">Grade level</th><th scope="col">Subject</th><th scope="col">Topic / Lesson</th><th scope="col">Assessment</th><th scope="col">Stakes</th><th scope="col">Status</th></tr></thead>
+          <tbody id="teacher-summary-body"></tbody>
+        </table>
       </section>
       <dialog id="color-dialog" class="card app-dialog teacher-dialog" aria-labelledby="color-title">
         <form id="color-form" class="form">
@@ -68,10 +90,14 @@
         <form id="form" class="form">
           <h2 id="editor-title" class="wide">Add assessment</h2>
           <label>Subject (required)<select id="subj" required autofocus></select></label>
-          <label>Assessment type<select id="assessment-type"><option value="">Select type</option><option value="formative">Formative Assessment</option><option value="summative">Summative Assessment</option><option value="alternative">Alternative Assessment</option></select></label>
-          <label>Nature of implementation<select id="implementation"><option value="">Select implementation</option><option value="sync">Synchronous (in class)</option><option value="async">Asynchronous</option></select></label>
+          <label id="subject-audience-field" hidden>Assign to<select id="subject-audience"></select></label>
+          <label id="elective-grades-field" hidden>Elective grade levels<select id="elective-grades"><option value="both">Grades 11 and 12</option><option value="current"></option></select></label>
+          <label>Assessment type<select id="assessment-type"><option value="">Select type</option><option value="formative">Formative Assessment</option><option value="alternative">Alternative Assessment</option><option value="summative">Summative Assessment</option><option value="long_test">Long Test</option><option value="defense">Defense</option></select></label>
+          <label>Stakes<select id="assessment-stakes"><option value="high">High Stakes</option><option value="low">Low Stakes</option></select></label>
+          <label>Nature of implementation<select id="implementation"><option value="">Select implementation</option><option value="sync">In Class</option><option value="async">Submission</option></select></label>
           <label><span id="given-label">Date given (required)</span><input id="given" type="date" aria-describedby="given-error" required><span id="given-error" class="err" aria-live="polite"></span></label>
           <label>Deadline (required)<input id="due" type="date" aria-describedby="due-error" required><span id="due-error" class="err" aria-live="polite"></span></label>
+          <div id="editor-workload" class="wide editor-workload" hidden></div>
           <label class="wide"><span id="topic-label">Topic / Lesson (required)</span><input id="topic" maxlength="255" pattern=".*\S.*" title="Enter the main topic." required></label>
           <label class="wide">Assessment description (optional)<textarea id="desc" rows="3"></textarea></label>
           <label class="wide">Remarks<textarea id="remarks" rows="2" maxlength="4000"></textarea></label>
@@ -98,7 +124,8 @@
     </section>
   </main>
   <footer class="site-footer">Weekly Assessment Tracker · PSHS-IRC</footer>
-  <script src="week.js?v=461cc74a"></script>
-  <script src="teacher.js?v=51de0943"></script>
+  <script src="week.js?v=wat-workflow-1"></script>
+  <script src="adviser.js?v=wat-workflow-1"></script>
+  <script src="teacher.js?v=wat-workflow-1"></script>
 </body>
 </html>

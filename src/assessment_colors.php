@@ -3,6 +3,8 @@ const WAT_ASSESSMENT_COLORS = [
     'formative' => '#15803d',
     'summative' => '#b45309',
     'alternative' => '#2563eb',
+    'long_test' => '#7c3aed',
+    'defense' => '#be185d',
 ];
 
 function assessmentColors($db)

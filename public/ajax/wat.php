@@ -2,6 +2,10 @@
 require __DIR__ . '/../../src/session.php';
 require __DIR__ . '/../../src/database.php';
 require __DIR__ . '/../../src/assessments.php';
+require __DIR__ . '/../../src/assessment_changes.php';
+require __DIR__ . '/../../src/subject_catalog.php';
+require __DIR__ . '/../../src/publication.php';
+require __DIR__ . '/../../src/notifications.php';
 require __DIR__ . '/../../src/assessment_colors.php';
 
 $action = $_GET['action'] ?? '';
@@ -10,7 +14,9 @@ $routes = [
     'me' => ['GET'], 'logout' => ['POST'], 'batches' => ['GET'], 'week' => ['GET'],
     'subjects' => ['GET'], 'teacherBatches' => ['GET'], 'teacherWeek' => ['GET'], 'approve' => ['POST'],
     'assessment' => ['POST', 'PUT', 'PATCH', 'DELETE'],
-    'assessmentColors' => ['GET', 'PUT'],
+    'assessmentColors' => ['GET', 'PUT'], 'teacherSummary' => ['GET'],
+    'pendingChanges' => ['GET'], 'reviewChange' => ['POST'], 'batchLimits' => ['PUT'],
+    'adviserAssignments' => ['GET', 'PUT'], 'emailTemplates' => ['GET', 'PUT'],
 ];
 if (!is_string($action) || !isset($routes[$action])) {
     reply(['error' => 'Unknown action.'], 404);
@@ -20,7 +26,7 @@ if (!in_array($method, $routes[$action], true)) {
     reply(['error' => 'Method not allowed.'], 405);
 }
 try {
-    $public = in_array($action, ['batches', 'week'], true) || ($action === 'assessmentColors' && $method === 'GET');
+    $public = in_array($action, ['batches', 'week', 'subjects'], true) || ($action === 'assessmentColors' && $method === 'GET');
     if (!$public) {
         startWatSession();
         $csrf = $_SESSION['csrf_token'];
@@ -38,14 +44,15 @@ try {
             }
             reply(['error' => 'Login required.'], 401);
         }
+        $role = $_SESSION['role'] ?? '';
         $user = ['id' => $_SESSION['employeeID'], 'name' => $_SESSION['username'],
             'isAdmin' => ($_SESSION['isBuiltInAdmin'] ?? false) || $_SESSION['employeeID'] === 'admin.controller'];
         session_write_close();
         if ($action === 'me') {
             reply(['user' => $user, 'csrf_token' => $csrf]);
         }
-        if ($action === 'assessmentColors' && !$user['isAdmin']) {
-            reply(['error' => 'Only a WAT admin can edit assessment colors.'], 403);
+        if (in_array($action, ['assessmentColors', 'adviserAssignments', 'emailTemplates'], true) && !$user['isAdmin']) {
+            reply(['error' => 'Only a WAT root admin can manage these settings.'], 403);
         }
     }
 
@@ -67,26 +74,42 @@ try {
         }
         reply(weekData($db, null, $group, $_GET['start'] ?? ''));
     }
-    if ($action === 'teacherBatches') {
-        $batches = rows($db, 'SELECT batch, MAX(employeeID=?) AS advises FROM wat_batch_advisers GROUP BY batch ORDER BY batch', [$user['id']]);
-        reply(['batches' => assessmentGroups($db, $batches),
-            'adviserOf' => array_column(array_filter($batches, static function ($row) { return $row['advises']; }), 'batch')]);
+    if ($action === 'subjects') {
+        $batch = $_GET['batch'] ?? '';
+        requireWatBatch($db, $batch);
+        reply(subjectCatalog($db, $batch));
     }
-    if (in_array($action, ['teacherWeek', 'assessment', 'approve'], true) && !$user['isAdmin']) {
-        $user['adviserOf'] = array_column(rows($db, 'SELECT batch FROM wat_batch_advisers WHERE employeeID=?', [$user['id']]), 'batch');
+
+    $user['adviserOf'] = array_column(rows($db, 'SELECT batch FROM wat_batch_advisers WHERE employeeID=? ORDER BY batch',
+        [$user['id']]), 'batch');
+    if (!$user['isAdmin'] && $role !== 'teacher' && !$user['adviserOf']) {
+        reply(['error' => 'A teacher or batch adviser account is required.'], 403);
+    }
+    if ($action === 'teacherBatches') {
+        reply(['batches' => assessmentGroups($db, rows($db, 'SELECT DISTINCT batch FROM wat_batch_advisers ORDER BY batch')),
+            'adviserOf' => $user['adviserOf']]);
     }
     if ($action === 'teacherWeek') {
-        reply(weekData($db, $user, $_GET['batch'] ?? '', $_GET['start'] ?? ''));
+        $batch = $_GET['batch'] ?? '';
+        requireWatBatch($db, $batch);
+        reply(weekData($db, $user, $batch, $_GET['start'] ?? ''));
     }
-    if ($action === 'subjects') {
-        $grade = assessmentGrade($_GET['batch'] ?? null);
-        $sql = "SELECT DISTINCT subjectCode AS description, subjectAcademicUnit AS unit
-                FROM subject WHERE status='active'";
-        if ($grade !== null) {
-            $sql .= ' AND subjectGradeLevel+0=?';
-        }
-        reply(rows($db, $sql . ' ORDER BY description, unit', $grade === null ? [] : [$grade]));
+    if ($action === 'teacherSummary') {
+        reply(teacherSummary($db, $user));
     }
+    if ($action === 'pendingChanges') {
+        $batch = $_GET['batch'] ?? '';
+        requireBatchAdviser($user, $batch);
+        requireWatBatch($db, $batch);
+        reply(pendingAssessmentChanges($db, $user, $batch, $_GET['start'] ?? ''));
+    }
+    if ($action === 'adviserAssignments' && $method === 'GET') {
+        reply(adviserAssignments($db));
+    }
+    if ($action === 'emailTemplates' && $method === 'GET') {
+        reply(emailTemplates($db));
+    }
+
     $input = [];
     if ($method !== 'DELETE') {
         $input = json_decode(file_get_contents('php://input'), true);
@@ -98,22 +121,16 @@ try {
         case 'assessmentColors':
             reply(saveAssessmentColors($db, $input));
         case 'approve':
-            $batch = $input['batch'] ?? '';
-            $date = $input['start'] ?? '';
-            if (!canManageBatch($user, $batch)) {
-                reply(['error' => 'Only the batch adviser can approve.'], 403);
-            }
-            if (!validDate($date) || !is_bool($input['approved'] ?? null)) {
-                reply(['error' => 'Invalid week or approval.'], 400);
-            }
-            $start = (new DateTimeImmutable($date))->modify('monday this week')->format('Y-m-d');
-            if ($input['approved']) {
-                statement($db, 'INSERT IGNORE INTO wat_week_approvals (batch,week_start,approved_by) VALUES (?,?,?)',
-                    [$batch, $start, $user['id']]);
-            } else {
-                statement($db, 'DELETE FROM wat_week_approvals WHERE batch=? AND week_start=?', [$batch, $start]);
-            }
-            reply(['ok' => true]);
+            $result = setWeekPublication($db, $user, $input);
+            reply($result, isset($result['error']) ? 403 : 200);
+        case 'reviewChange':
+            reply(reviewAssessmentChange($db, $user, $input));
+        case 'batchLimits':
+            reply(saveBatchLimits($db, $user, $input));
+        case 'adviserAssignments':
+            reply(saveAdviserAssignment($db, $input));
+        case 'emailTemplates':
+            reply(saveEmailTemplate($db, $input));
         case 'assessment':
             if ($method === 'DELETE' && isset($_GET['batch'])) {
                 $input['batch'] = $_GET['batch'];
