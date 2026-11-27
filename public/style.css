@@ -350,13 +350,25 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
 .editor-workload section + section { margin-top: 8px; }
 .editor-workload h4, .editor-workload h5 { margin: 0 0 4px; }
 .editor-workload-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-.editor-workload-days > div {
+.editor-workload-day {
   padding: 6px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-input);
   overflow-wrap: anywhere;
 }
 .editor-workload-days > .editor-workload-selected { border-color: var(--color-primary-mid); background: var(--tint); }
+.editor-workload-day[data-deadline] { cursor: pointer; }
+.editor-workload-day button {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  color: var(--color-primary-mid);
+  text-align: left;
+}
+.editor-workload-day button:hover:not(:disabled) { transform: none; box-shadow: none; }
+.editor-workload-day:hover button { text-decoration: underline; }
 .editor-workload-days ul { list-style: none; padding: 0; margin: 0; font-size: 11px; }
 
 @media (max-width: 640px) {

@@ -316,7 +316,11 @@ async function previewWorkload() {
       `<section><h4>${esc(batches[index])}</h4><div class="editor-workload-days">${Array.from({ length: 5 }, (_, offset) => {
         const day = addDays(previewStart, offset);
         const dayItems = week.items.filter(item => item.deadline === day);
-        return `<div${day === due ? ' class="editor-workload-selected"' : ''}><h5>${fmt(day)}</h5>
+        const selected = day === due;
+        const label = esc(fmt(day));
+        const dayControl = editing ? label
+          : `<button type="button" aria-label="Set deadline to ${label}" aria-pressed="${selected}">${label}</button>`;
+        return `<div class="editor-workload-day${selected ? ' editor-workload-selected' : ''}"${editing ? '' : ` data-deadline="${day}"`}><h5>${dayControl}</h5>
           <div class="teacher-workload">${workloadCounts(dayItems, week.limits)}</div>
           ${dayItems.length ? `<ul>${dayItems.map(item => `<li>${esc(item.subject)}${item.editable ? '' : ` <small>(${item.pending ? 'awaiting approval' : 'read only'})</small>`}</li>`).join('')}</ul>` : ''}
         </div>`;
@@ -559,6 +563,25 @@ $('subject-audience').onchange = () => { updateElectiveGrades(); previewWorkload
 $('elective-grades').onchange = previewWorkload;
 $('given').oninput = validateEditorDates;
 $('due').oninput = () => { validateEditorDates(); previewWorkload(); };
+$('editor-workload').onclick = (event) => {
+  const card = event.target.closest('[data-deadline]');
+  if (!card || saving) return;
+  const day = card.dataset.deadline;
+  const given = $('given');
+  const due = $('due');
+  const deadlineChanged = due.value !== day;
+  due.value = day;
+  const givenChanged = given.valueAsNumber > due.valueAsNumber;
+  if (givenChanged) given.value = day;
+  if (deadlineChanged || givenChanged) editorDirty = true;
+  validateEditorDates();
+
+  for (const dayCard of event.currentTarget.querySelectorAll('[data-deadline]')) {
+    const selected = dayCard.dataset.deadline === day;
+    dayCard.classList.toggle('editor-workload-selected', selected);
+    dayCard.querySelector('button').setAttribute('aria-pressed', String(selected));
+  }
+};
 $('move-date').oninput = () => dateError('move-date', deadlineError($('move-date').value, moving.date_given));
 $('cancel').onclick = () => dismissDialog(editor);
 $('move-cancel').onclick = () => moveDialog.close();
