@@ -71,6 +71,17 @@ const fmt = (s) => new Date(s + 'T00:00:00').toLocaleDateString(undefined, { wee
 const rangeLabel = (a, b) => `${fmt(a)} – ${fmt(b)}`;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
+const contentTransitions = new WeakMap();
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+function revealContent(element) {
+  contentTransitions.get(element)?.cancel();
+  if (element.hidden || reducedMotion.matches) return;
+  const transition = element.animate([{ opacity: 0.65 }, { opacity: 1 }], {
+    duration: 150,
+    easing: 'ease-out',
+  });
+  contentTransitions.set(element, transition);
+}
 function dismissDialog(dialog) {
   if (dialog.open && dialog.dispatchEvent(new Event('cancel', { cancelable: true }))) {
     dialog.close();

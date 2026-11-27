@@ -207,6 +207,7 @@ function showPeriod(date, view = calendarView) {
   $('approve').hidden = true;
   clearAdviser();
   renderBoard();
+  revealContent(view === 'week' ? board : monthBoard);
   return load();
 }
 
@@ -650,6 +651,7 @@ async function loadSummary() {
 }
 
 function selectPanel(panel, date, batch) {
+  const changed = activePanel !== panel;
   activePanel = panel;
   const isCalendar = panel === 'calendar';
   $('calendar-tab').setAttribute('aria-pressed', String(isCalendar));
@@ -659,6 +661,7 @@ function selectPanel(panel, date, batch) {
   $('teacher-filters').hidden = !isCalendar;
   ++loadVersion;
   ++summaryVersion;
+  if (changed && !date) revealContent($(isCalendar ? 'teacher-calendar' : 'teacher-summary'));
   if (isCalendar) {
     if (batch && [...sel.options].some(option => option.value === batch)) sel.value = batch;
     return date ? showWeek(date) : load();

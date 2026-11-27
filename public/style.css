@@ -15,7 +15,9 @@
   --radius-card:16px;--radius-input:12px;--radius-btn:20px;
   --shadow-card:0 4px 20px rgba(0,0,0,.05);--shadow-hover:0 8px 20px rgba(43,85,196,.2);--shadow-header:0 2px 12px rgba(0,0,0,.18);
   --tint:rgba(43,85,196,.05);--tint-strong:rgba(43,85,196,.15);--tint-border:rgba(43,85,196,.2);
-  --transition:all .3s cubic-bezier(.4,0,.2,1);
+  --motion-fast:150ms;
+  --motion-standard:240ms;
+  --motion-ease:cubic-bezier(.4,0,.2,1);
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -29,14 +31,14 @@ a{color:var(--color-primary-mid);font-weight:600;text-decoration:none}a:hover{co
 .header .logo{height:60px;width:auto;flex-shrink:0}
 .header .school{line-height:1.25;font-size:15px;font-weight:700}
 .header .system-name{flex:1;text-align:center;font-size:2.4rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.25)}
-.header .nav-link{color:#fff;font-size:13px;font-weight:600;padding:6px 18px;border:1px solid rgba(255,255,255,.3);border-radius:var(--radius-btn);background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.2));white-space:nowrap;transition:var(--transition)}
+.header .nav-link{color:#fff;font-size:13px;font-weight:600;padding:6px 18px;border:1px solid rgba(255,255,255,.3);border-radius:var(--radius-btn);background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.2));white-space:nowrap;transition:border-color var(--motion-fast),transform var(--motion-fast) var(--motion-ease)}
 .header .nav-link:hover{color:#fff;text-decoration:none;transform:translateY(-2px);border-color:rgba(255,255,255,.5)}
 
 .bar{display:flex;flex-wrap:wrap;gap:var(--space-sm);align-items:center;margin:var(--space-md) 0}
 .bar .sp{flex:1}
 
 /* Liquid glass controls */
-button,select,input,textarea{font:inherit;font-size:13px;color:var(--color-text);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-input);padding:8px 12px;transition:var(--transition)}
+button,select,input,textarea{font:inherit;font-size:13px;color:var(--color-text);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-input);padding:8px 12px;transition:color var(--motion-fast),background-color var(--motion-fast),border-color var(--motion-fast),box-shadow var(--motion-fast),opacity var(--motion-fast),transform var(--motion-fast) var(--motion-ease)}
 input,textarea,select{background:var(--color-input-bg)}
 input:focus,textarea:focus,select:focus{outline:none;border-color:var(--tint-border);box-shadow:var(--shadow-hover)}
 button{cursor:pointer;font-weight:600;border-radius:var(--radius-btn);padding:6px 18px;color:var(--color-primary-mid);border-color:var(--tint-border);background:linear-gradient(135deg,var(--tint),var(--tint-strong));box-shadow:0 4px 12px var(--tint)}
@@ -91,7 +93,6 @@ tbody tr:hover{background:var(--tint)}
   th,td{padding:10px}
   .acts{flex-wrap:wrap;white-space:normal}
 }
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 td.acts{display:table-cell}td.acts button{margin-right:6px}
 
 .assessment-tag{display:inline-block;padding:2px 8px;border-radius:12px;background:var(--color-bg);color:var(--color-primary);white-space:normal}
@@ -154,9 +155,42 @@ input.bad{border-color:var(--color-danger);box-shadow:0 0 0 3px rgba(220,53,69,.
 .calendar-toolbar h2 { margin: 0; font-size: 1.15rem; text-align: center; }
 .calendar-nav button, .calendar-modes button { min-height: 36px; padding: 5px 12px; }
 .calendar-nav #prev, .calendar-nav #next { min-width: 36px; font-size: 1.15rem; line-height: 1; }
-.calendar-modes { justify-self: end; gap: 2px; padding: 3px; border-radius: var(--radius-btn); background: var(--color-bg); }
-.calendar-modes button { border: 0; background: transparent; box-shadow: none; }
+.calendar-modes {
+  --mode-padding: 3px;
+  --mode-gap: 2px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  justify-self: end;
+  gap: var(--mode-gap);
+  padding: var(--mode-padding);
+  border-radius: var(--radius-btn);
+  background: var(--color-bg);
+}
+.calendar-modes button { position: relative; border: 0; background: transparent; box-shadow: none; }
+.calendar-modes button:hover:not(:disabled) { transform: none; box-shadow: none; }
+.calendar-modes button:focus-visible { z-index: 1; }
 .calendar-modes button[aria-pressed="true"] { color: #fff; background: var(--color-primary-mid); }
+@supports selector(:has(*)) {
+  .calendar-modes::before {
+    content: '';
+    position: absolute;
+    inset-block: var(--mode-padding);
+    inset-inline-start: var(--mode-padding);
+    width: calc((100% - 2 * var(--mode-padding) - var(--mode-gap)) / 2);
+    border-radius: var(--radius-btn);
+    background: var(--color-primary-mid);
+    pointer-events: none;
+    transition: transform var(--motion-standard) var(--motion-ease);
+  }
+  .calendar-modes:has(> button:last-child[aria-pressed="true"])::before {
+    transform: translateX(calc(100% + var(--mode-gap)));
+  }
+  .calendar-modes:dir(rtl):has(> button:last-child[aria-pressed="true"])::before {
+    transform: translateX(calc(-100% - var(--mode-gap)));
+  }
+  .calendar-modes button[aria-pressed="true"] { background: transparent; }
+}
 .calendar-jump { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); font-weight: 600; }
 .calendar-jump input { min-height: 36px; max-width: 100%; padding: 5px 8px; }
 #student-jump { grid-column: 1 / -1; justify-self: center; }
@@ -221,7 +255,7 @@ button.calendar-day {
   border-radius: 0;
   box-shadow: none;
   color: var(--color-primary);
-  transition: none;
+  transition: background-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 button.calendar-day:hover:not(:disabled) { box-shadow: none; transform: none; background: var(--color-bg); }
 button.calendar-day:focus-visible { outline-offset: -3px; }
@@ -289,6 +323,7 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
   gap: var(--space-sm);
 }
 .teacher-tabs { margin-bottom: var(--space-md); }
+.teacher-tabs button { background: var(--tint); }
 .teacher-tabs button[aria-pressed="true"] { color: #fff; background: var(--color-primary-mid); }
 .teacher-period-tools {
   justify-content: space-between;
@@ -353,6 +388,7 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
   border-radius: var(--radius-btn);
 }
 .teacher-day-add { min-width: 32px; min-height: 32px; padding: 3px 8px; font-size: 1rem; }
+.teacher-day { transition: background-color var(--motion-fast), box-shadow var(--motion-fast); }
 .teacher-day.is-drop-target { background: var(--color-bg); box-shadow: inset 0 0 0 2px var(--color-primary-mid); }
 .teacher-assessment { cursor: grab; }
 .teacher-assessment.is-dragging { opacity: .45; }
@@ -386,6 +422,28 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
 .weekend-cards .calendar-assessment { margin: 0; }
 .app-dialog { max-height: calc(100dvh - 24px); }
 .app-dialog::backdrop { background: rgba(11, 27, 98, .35); }
+@supports (transition-behavior: allow-discrete) and (overlay: auto) {
+  .app-dialog {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity var(--motion-fast) var(--motion-ease),
+      transform var(--motion-fast) var(--motion-ease),
+      display var(--motion-fast) allow-discrete,
+      overlay var(--motion-fast) allow-discrete;
+  }
+  .app-dialog[open] { opacity: 1; transform: none; }
+  .app-dialog::backdrop {
+    opacity: 0;
+    transition: opacity var(--motion-fast) var(--motion-ease), display var(--motion-fast) allow-discrete;
+  }
+  .app-dialog[open]::backdrop { opacity: 1; }
+  .app-dialog:not([open]), .app-dialog:not([open])::backdrop { pointer-events: none; }
+  @starting-style {
+    .app-dialog[open] { opacity: 0; transform: translateY(6px); }
+    .app-dialog[open]::backdrop { opacity: 0; }
+  }
+}
 .teacher-dialog { width: min(650px, calc(100% - 24px)); padding: 0; }
 .teacher-dialog .form { margin: 0; padding: var(--space-lg); }
 .teacher-dialog h2 { margin: 0; font-size: 1.15rem; }
@@ -431,3 +489,8 @@ button.calendar-day[aria-pressed="true"] { background: #edf2ff; box-shadow: inse
 .wat-admin-content { display: grid; gap: 1rem; }
 .wat-admin-content h2, .wat-admin-content h3 { margin: 0; }
 .wat-admin-content form[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+  button:hover:not(:disabled), .header .nav-link:hover { transform: none; }
+}

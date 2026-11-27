@@ -125,6 +125,7 @@ async function load({ reset = false } = {}) {
       : weekFormat.formatRange(asDate(period.start), asDate(period.end));
     syncStudentJump(cursor, view);
     renderCalendar(period, today);
+    revealContent(calendar);
     if (group) showMessage('Loading assessments…');
   }
   if (!group) return;
@@ -186,12 +187,13 @@ function changeView(nextView) {
 
 calendar.onclick = (event) => {
   const day = event.target.closest('button[data-date]');
-  if (!day) return;
+  if (!day || day.dataset.date === cursor) return;
   calendar.querySelector('[aria-pressed="true"]')?.setAttribute('aria-pressed', 'false');
   day.setAttribute('aria-pressed', 'true');
   cursor = day.dataset.date;
   syncStudentJump(cursor, view);
   renderDayDetails();
+  revealContent(details);
 };
 $('prev').onclick = () => movePeriod(-1);
 $('next').onclick = () => movePeriod(1);
